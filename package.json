@@ -10,11 +10,13 @@
     "build:site2": "vite build -c vite.site2.config.js",
     "preview": "vite preview",
     "preview:site2": "vite preview -c vite.site2.config.js",
+    "get-key": "node scripts/get-tmdb-key.cjs",
     "lint": "eslint ."
   },
   "dependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "freekeys": "^0.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
