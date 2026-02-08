@@ -5,18 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:site2": "vite -c vite.site2.config.js",
     "build": "vite build",
-    "build:site2": "vite build -c vite.site2.config.js",
     "preview": "vite preview",
-    "preview:site2": "vite preview -c vite.site2.config.js",
     "get-key": "node scripts/get-tmdb-key.cjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "freekeys": "^0.0.4",
+    "gh-pages": "^6.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "freekeys": "^0.0.4"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
