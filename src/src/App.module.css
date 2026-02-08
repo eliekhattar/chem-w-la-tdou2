@@ -63,17 +63,49 @@
   transform: scale(1.02);
 }
 
-.searchWrap {
-  flex: 1 1 100%;
-  min-width: 0;
-  max-width: 420px;
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: auto;
 }
 
 @media (min-width: 600px) {
-  .searchWrap {
-    flex: 1 1 auto;
-    margin-left: auto;
+  .nav {
+    gap: 0.5rem;
   }
+}
+
+.navLink {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.6rem;
+  min-height: 40px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted, #aaa);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+@media (min-width: 600px) {
+  .navLink {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+    min-height: 44px;
+  }
+}
+
+.navLink:hover {
+  color: var(--accent, #05c653);
+}
+
+.navLink:focus-visible {
+  outline: 2px solid var(--accent, #05c653);
+  outline-offset: 2px;
 }
 
 .main {
@@ -129,13 +161,20 @@
   font-weight: 600;
   color: var(--accent, #05c653);
   letter-spacing: 0.02em;
-  margin: 0;
+  margin: 0 0 1.25rem;
 }
 
 @media (min-width: 600px) {
   .heroTagline {
-    font-size: 2.0rem;
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
   }
+}
+
+.heroSearchWrap {
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .watchSection {
@@ -242,6 +281,91 @@
   .sectionTitle::before {
     width: 3em;
     height: 4px;
+  }
+}
+
+.sectionHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.sectionHeaderRow .sectionTitle {
+  margin-bottom: 0;
+  padding-bottom: 0.5rem;
+}
+
+.seeAllLink {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent, #05c653);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.seeAllLink:hover {
+  text-decoration: underline;
+}
+
+.liveTvGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+
+@media (min-width: 480px) {
+  .liveTvGrid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 600px) {
+  .liveTvGrid {
+    gap: 1rem;
+  }
+}
+
+.liveTvCard {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  background: var(--surface, #1a1a1a);
+  border: 1px solid var(--border, #333);
+  border-radius: var(--radius-md, 8px);
+  text-decoration: none;
+  color: var(--text, #f5f5f5);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.liveTvCard:hover {
+  background: var(--surface-elevated, #252525);
+  border-color: var(--accent, #05c653);
+}
+
+.liveTvCardIcon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.liveTvCardName {
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+@media (min-width: 600px) {
+  .liveTvCardName {
+    font-size: 0.95rem;
   }
 }
 

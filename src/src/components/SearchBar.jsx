@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import styles from './SearchBar.module.css'
+import searchIcon from '../../assets/search.png'
 
-export default function SearchBar({ onSearch, placeholder = 'Search movies & series...', isLoading }) {
+export default function SearchBar({ onSearch, placeholder = 'Game of Thrones...', isLoading }) {
   const [query, setQuery] = useState('')
 
   const handleSubmit = (e) => {
@@ -11,7 +12,8 @@ export default function SearchBar({ onSearch, placeholder = 'Search movies & ser
 
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
-      <span className={styles.icon} aria-hidden>🔍</span>
+      {/* <span className={styles.icon} aria-hidden>🔍</span> */}
+      <img src={searchIcon} alt="Search" className={styles.iconImg} />
       <input
         type="search"
         className={styles.input}

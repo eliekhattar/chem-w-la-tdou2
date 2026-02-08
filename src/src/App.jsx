@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { getTrendingMovies, getTrendingTv, searchMovies, searchTv, hasApiKey } from './api/tmdb'
-import MediaCard from './components/MediaCard'
-import SearchBar from './components/SearchBar'
-import OpenByTmdbId from './components/OpenByTmdbId'
 import WatchScreen from './screens/WatchScreen'
+import LiveChannels from './screens/LiveChannels'
+import LiveWatch from './screens/LiveWatch'
+import HomePage, { SECTION_IDS } from './screens/HomePage'
 import styles from './App.module.css'
 import logo from '../../src/assets/Klogo.png'
 
@@ -62,6 +62,14 @@ export default function App() {
     navigate(`/watch/tv/${item.id}?season=${s}&episode=${e}`)
   }
 
+  const scrollToSection = (sectionId) => {
+    if (isBrowse) {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      navigate('/', { state: { scrollTo: sectionId } })
+    }
+  }
+
   return (
     <div className={styles.app}>
       <header className={styles.header}>
@@ -69,93 +77,39 @@ export default function App() {
           <img src={logo} alt="KhattarHub" className={styles.logoImg} />
           <span className={styles.logoText}>KhattarHub</span>
         </button>
-        {isBrowse && (
-          <div className={styles.searchWrap}>
-            <SearchBar onSearch={handleSearch} isLoading={searching} />
-          </div>
-        )}
+        <nav className={styles.nav}>
+          <button type="button" className={styles.navLink} onClick={() => navigate('/')}>
+            Home
+          </button>
+          <button type="button" className={styles.navLink} onClick={() => scrollToSection(SECTION_IDS.movies)}>
+            Movies
+          </button>
+          <button type="button" className={styles.navLink} onClick={() => scrollToSection(SECTION_IDS.series)}>
+            Series
+          </button>
+          <button type="button" className={styles.navLink} onClick={() => isBrowse ? scrollToSection(SECTION_IDS.liveTv) : navigate('/live')}>
+            Live TV & Sports
+          </button>
+        </nav>
       </header>
 
       <main className={styles.main}>
         <Routes>
           <Route path="/watch/:type/:id" element={<WatchScreen />} />
+          <Route path="/live/watch" element={<LiveWatch />} />
+          <Route path="/live" element={<LiveChannels />} />
           <Route path="/" element={
-          <>
-            <div className={styles.heroBanner}>
-              <h1 className={styles.heroTitle}>Welcome to KhattarHub</h1>
-              <p className={styles.heroTagline}>Ensa akbar Netflix</p>
-            </div>
-            {!hasApiKey() && (
-              <div className={styles.apiBanner}>
-                <p>
-                  Add a <strong>TMDB API key</strong> to browse and search: run <code>npm run get-key</code> in the project folder (uses freekeys, no signup), or get your own at{' '}
-                  <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">themoviedb.org</a> and set <code>VITE_TMDB_API_KEY</code> in <code>.env</code>. Then restart the dev server.
-                </p>
-                <OpenByTmdbId onPlayMovie={handlePlayMovie} onPlayTv={handlePlayTv} />
-              </div>
-            )}
-
-            {searchQuery.trim() && (
-              <section className={styles.searchSection}>
-                <h2 className={styles.searchSectionTitle}>Search: “{searchQuery}”</h2>
-                {(searchResults.movies.length > 0 || searchResults.tv.length > 0) ? (
-                  <>
-                    {searchResults.movies.length > 0 && (
-                      <div className={styles.searchCategory}>
-                        <h3 className={styles.searchCategoryTitle}>Movies</h3>
-                        <div className={styles.cardGrid}>
-                          {searchResults.movies.map((m) => (
-                            <MediaCard key={`m-${m.id}`} item={m} type="movie" onClick={handlePlayMovie} />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {searchResults.tv.length > 0 && (
-                      <div className={styles.searchCategory}>
-                        <h3 className={styles.searchCategoryTitle}>TV Series</h3>
-                        <div className={styles.cardGrid}>
-                          {searchResults.tv.map((t) => (
-                            <MediaCard key={`t-${t.id}`} item={t} type="tv" onClick={handlePlayTv} />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  !searching && <p className={styles.empty}>No results.</p>
-                )}
-              </section>
-            )}
-
-            {hasApiKey() && !searchQuery.trim() && (
-              <>
-                <section className={styles.section}>
-                  <h2 className={styles.sectionTitle}>Trending Movies</h2>
-                  {loadingTrending ? (
-                    <div className={styles.loading}>Loading…</div>
-                  ) : (
-                    <div className={styles.cardGrid}>
-                      {trendingMovies.slice(0, 12).map((m) => (
-                        <MediaCard key={m.id} item={m} type="movie" onClick={handlePlayMovie} />
-                      ))}
-                    </div>
-                  )}
-                </section>
-                <section className={styles.section}>
-                  <h2 className={styles.sectionTitle}>Trending TV Series</h2>
-                  {loadingTrending ? (
-                    <div className={styles.loading}>Loading…</div>
-                  ) : (
-                    <div className={styles.cardGrid}>
-                      {trendingTv.slice(0, 12).map((t) => (
-                        <MediaCard key={t.id} item={t} type="tv" onClick={handlePlayTv} />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-          </>
+            <HomePage
+              trendingMovies={trendingMovies}
+              trendingTv={trendingTv}
+              loadingTrending={loadingTrending}
+              searchQuery={searchQuery}
+              searchResults={searchResults}
+              searching={searching}
+              handleSearch={handleSearch}
+              handlePlayMovie={handlePlayMovie}
+              handlePlayTv={handlePlayTv}
+            />
           } />
         </Routes>
       </main>
