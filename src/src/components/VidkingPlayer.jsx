@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { VIDKING_BASE } from '../config'
 import styles from './VidkingPlayer.module.css'
 
-const DEFAULT_COLOR = 'e50914' // Netflix-style red
+const DEFAULT_COLOR = '05c653' // matches --accent
 
 /**
  * Build Vidking embed URL per https://www.vidking.net/#documentation

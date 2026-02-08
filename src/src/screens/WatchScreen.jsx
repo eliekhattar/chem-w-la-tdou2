@@ -58,7 +58,6 @@ export default function WatchScreen() {
       <h1 className={styles.watchTitle}>{title}</h1>
       {isTv && (
         <EpisodePicker
-          key={`${season}-${episode}`}
           seasons={seasons}
           currentSeason={season}
           currentEpisode={episode}

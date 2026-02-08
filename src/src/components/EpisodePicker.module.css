@@ -1,39 +1,156 @@
 .wrapper {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: center;
-}
-
-.label {
-  display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  color: var(--text-muted, #888);
+  gap: 1.25rem;
+  padding: 1.25rem;
+  background: var(--surface, #1a1a1a);
+  border: 1px solid var(--border, #2a2a2a);
+  border-radius: var(--radius-lg, 12px);
 }
 
-.select {
-  padding: 0.6rem 2rem 0.6rem 0.75rem;
-  min-height: 44px;
-  box-sizing: border-box;
-  background: var(--surface-elevated, #252525);
-  border: 1px solid var(--border, #333);
-  border-radius: var(--radius-sm, 6px);
-  color: var(--text, #f5f5f5);
-  font-size: 0.95rem;
-  cursor: pointer;
-  min-width: 120px;
-  width: 100%;
-}
-
-@media (min-width: 480px) {
-  .select {
-    width: auto;
+@media (min-width: 600px) {
+  .wrapper {
+    padding: 1.5rem;
+    gap: 1.5rem;
   }
 }
 
-.select:focus {
-  outline: none;
-  border-color: var(--accent, #e50914);
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sectionLabel {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted, #888);
+}
+
+.seasonStrip {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border, #333) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.seasonStrip::-webkit-scrollbar {
+  height: 4px;
+}
+
+.seasonStrip::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.seasonStrip::-webkit-scrollbar-thumb {
+  background: var(--border, #333);
+  border-radius: 2px;
+}
+
+.seasonChip,
+.seasonChipActive {
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 48px;
+  height: 44px;
+  padding: 0 1rem;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.seasonChip {
+  background: var(--surface-elevated, #252525);
+  color: var(--text-muted, #888);
+  border: 1px solid var(--border, #333);
+}
+
+.seasonChip:hover {
+  background: #2a2a2a;
+  color: var(--text, #f5f5f5);
+  border-color: #444;
+}
+
+.seasonChipActive {
+  background: var(--accent, #05c653);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(5, 198, 83, 0.4);
+}
+
+.seasonChipActive:hover {
+  background: var(--accent-hover, #0ae85c);
+  transform: scale(1.02);
+}
+
+.episodeStrip {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border, #333) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.episodeStrip::-webkit-scrollbar {
+  height: 4px;
+}
+
+.episodeStrip::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.episodeStrip::-webkit-scrollbar-thumb {
+  background: var(--border, #333);
+  border-radius: 2px;
+}
+
+.episodeBtn,
+.episodeBtnActive {
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.episodeBtn {
+  background: var(--surface-elevated, #252525);
+  color: var(--text, #f5f5f5);
+  border: 1px solid var(--border, #333);
+}
+
+.episodeBtn:hover {
+  background: #2a2a2a;
+  border-color: #444;
+  transform: scale(1.03);
+}
+
+.episodeBtnActive {
+  background: var(--accent, #05c653);
+  color: #fff;
+  box-shadow: 0 2px 14px rgba(5, 198, 83, 0.35);
+}
+
+.episodeBtnActive:hover {
+  background: var(--accent-hover, #0ae85c);
+  transform: scale(1.03);
+  box-shadow: 0 4px 18px rgba(5, 198, 83, 0.4);
 }

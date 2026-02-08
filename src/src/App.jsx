@@ -81,6 +81,10 @@ export default function App() {
           <Route path="/watch/:type/:id" element={<WatchScreen />} />
           <Route path="/" element={
           <>
+            <div className={styles.heroBanner}>
+              <h1 className={styles.heroTitle}>Welcome to KhattarHub</h1>
+              <p className={styles.heroTagline}>Ensa akbar Netflix</p>
+            </div>
             {!hasApiKey() && (
               <div className={styles.apiBanner}>
                 <p>
@@ -92,22 +96,28 @@ export default function App() {
             )}
 
             {searchQuery.trim() && (
-              <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>Search: “{searchQuery}”</h2>
+              <section className={styles.searchSection}>
+                <h2 className={styles.searchSectionTitle}>Search: “{searchQuery}”</h2>
                 {(searchResults.movies.length > 0 || searchResults.tv.length > 0) ? (
                   <>
                     {searchResults.movies.length > 0 && (
-                      <div className={styles.cardGrid}>
-                        {searchResults.movies.map((m) => (
-                          <MediaCard key={`m-${m.id}`} item={m} type="movie" onClick={handlePlayMovie} />
-                        ))}
+                      <div className={styles.searchCategory}>
+                        <h3 className={styles.searchCategoryTitle}>Movies</h3>
+                        <div className={styles.cardGrid}>
+                          {searchResults.movies.map((m) => (
+                            <MediaCard key={`m-${m.id}`} item={m} type="movie" onClick={handlePlayMovie} />
+                          ))}
+                        </div>
                       </div>
                     )}
                     {searchResults.tv.length > 0 && (
-                      <div className={styles.cardGrid}>
-                        {searchResults.tv.map((t) => (
-                          <MediaCard key={`t-${t.id}`} item={t} type="tv" onClick={handlePlayTv} />
-                        ))}
+                      <div className={styles.searchCategory}>
+                        <h3 className={styles.searchCategoryTitle}>TV Series</h3>
+                        <div className={styles.cardGrid}>
+                          {searchResults.tv.map((t) => (
+                            <MediaCard key={`t-${t.id}`} item={t} type="tv" onClick={handlePlayTv} />
+                          ))}
+                        </div>
                       </div>
                     )}
                   </>
@@ -117,7 +127,7 @@ export default function App() {
               </section>
             )}
 
-            {hasApiKey() && (
+            {hasApiKey() && !searchQuery.trim() && (
               <>
                 <section className={styles.section}>
                   <h2 className={styles.sectionTitle}>Trending Movies</h2>

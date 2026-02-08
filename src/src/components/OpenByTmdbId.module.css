@@ -51,7 +51,7 @@
   padding: 0.6rem 1rem;
   min-height: 44px;
   box-sizing: border-box;
-  background: var(--accent, #e50914);
+  background: var(--accent, #05c653);
   color: white;
   border: none;
   border-radius: var(--radius-sm, 6px);
@@ -61,5 +61,5 @@
 }
 
 .btn:hover {
-  background: var(--accent-hover, #f52d2d);
+  background: var(--accent-hover, #0ae85c);
 }
