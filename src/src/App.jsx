@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react'
-import { getTrendingMovies, getTrendingTv, searchMovies, searchTv, getTvDetails, hasApiKey } from './api/tmdb'
-import VidkingPlayer from './components/VidkingPlayer'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { getTrendingMovies, getTrendingTv, searchMovies, searchTv, hasApiKey } from './api/tmdb'
 import MediaCard from './components/MediaCard'
 import SearchBar from './components/SearchBar'
-import EpisodePicker from './components/EpisodePicker'
 import OpenByTmdbId from './components/OpenByTmdbId'
+import WatchScreen from './screens/WatchScreen'
 import styles from './App.module.css'
+import logo from '../../src/assets/Klogo.png'
 
 export default function App() {
-  const [view, setView] = useState('browse')
-  const [watching, setWatching] = useState(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const isBrowse = location.pathname === '/' || location.pathname === ''
+
   const [trendingMovies, setTrendingMovies] = useState([])
   const [trendingTv, setTrendingTv] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState({ movies: [], tv: [] })
   const [searching, setSearching] = useState(false)
-  const [tvDetails, setTvDetails] = useState(null)
   const [loadingTrending, setLoadingTrending] = useState(true)
 
   useEffect(() => {
@@ -37,14 +39,6 @@ export default function App() {
     return () => { cancelled = true }
   }, [])
 
-  useEffect(() => {
-    if (watching?.type === 'tv' && watching?.item?.id) {
-      getTvDetails(watching.item.id).then(setTvDetails).catch(() => setTvDetails(null))
-    } else {
-      setTvDetails(null)
-    }
-  }, [watching?.type, watching?.item?.id])
-
   const handleSearch = (query) => {
     setSearchQuery(query)
     if (!query.trim()) {
@@ -59,28 +53,23 @@ export default function App() {
   }
 
   const handlePlayMovie = (item) => {
-    setWatching({ type: 'movie', item, season: 1, episode: 1 })
-    setView('watch')
+    navigate(`/watch/movie/${item.id}`)
   }
 
   const handlePlayTv = (item, opts = {}) => {
-    setWatching({ type: 'tv', item, season: opts.season ?? 1, episode: opts.episode ?? 1 })
-    setView('watch')
+    const s = opts.season ?? 1
+    const e = opts.episode ?? 1
+    navigate(`/watch/tv/${item.id}?season=${s}&episode=${e}`)
   }
-
-  const handleEpisodeSelect = ({ season, episode }) => {
-    setWatching((prev) => prev ? { ...prev, season, episode } : null)
-  }
-
-  const seasons = tvDetails?.seasons?.filter((s) => s.season_number >= 1) ?? []
 
   return (
     <div className={styles.app}>
       <header className={styles.header}>
-        <button type="button" className={styles.logo} onClick={() => { setView('browse'); setWatching(null) }}>
-          🎬 KhattarHub
+        <button type="button" className={styles.logo} onClick={() => navigate('/')}>
+          <img src={logo} alt="KhattarHub" className={styles.logoImg} />
+          <span className={styles.logoText}>KhattarHub</span>
         </button>
-        {view === 'browse' && (
+        {isBrowse && (
           <div className={styles.searchWrap}>
             <SearchBar onSearch={handleSearch} isLoading={searching} />
           </div>
@@ -88,37 +77,9 @@ export default function App() {
       </header>
 
       <main className={styles.main}>
-        {view === 'watch' && watching && (
-          <section className={styles.watchSection}>
-            <button type="button" className={styles.backBtn} onClick={() => setView('browse')}>
-              ← Back to browse
-            </button>
-            <h1 className={styles.watchTitle}>
-              {watching.type === 'movie' ? watching.item.title : watching.item.name}
-            </h1>
-            {watching.type === 'tv' && (
-              <EpisodePicker
-                seasons={seasons}
-                currentSeason={watching.season}
-                currentEpisode={watching.episode}
-                onSelect={handleEpisodeSelect}
-              />
-            )}
-            <div className={styles.playerWrap}>
-              <VidkingPlayer
-                type={watching.type}
-                tmdbId={watching.item.id}
-                season={watching.season}
-                episode={watching.episode}
-                autoPlay
-                nextEpisode
-                episodeSelector
-              />
-            </div>
-          </section>
-        )}
-
-        {view === 'browse' && (
+        <Routes>
+          <Route path="/watch/:type/:id" element={<WatchScreen />} />
+          <Route path="/" element={
           <>
             {!hasApiKey() && (
               <div className={styles.apiBanner}>
@@ -185,7 +146,8 @@ export default function App() {
               </>
             )}
           </>
-        )}
+          } />
+        </Routes>
       </main>
     </div>
   )
