@@ -1,20 +1,76 @@
-import { useState, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { LIVE_TV_CHANNELS, ADULT_CHANNELS, getChannelLetter } from '../api/daddylives'
+import { getSports, getMatches, getBadgeUrl, getProxyUrl } from '../api/streamed'
 import styles from './LiveChannels.module.css'
 
 const LETTERS = ['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '#']
 const TAP_WINDOW_MS = 1500
 const TAPS_REQUIRED = 7
 
+const STREAMED_MATCH_FILTERS = [
+  { value: 'live', label: 'Live' },
+  { value: 'all-today', label: "Today" },
+  { value: 'all', label: 'All' },
+]
+
 export default function LiveChannels() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const provider = searchParams.get('provider') === 'streamed' ? 'streamed' : 'daddylives'
+
   const [searchQuery, setSearchQuery] = useState('')
   const [letterFilter, setLetterFilter] = useState('All')
   const [adultUnlocked, setAdultUnlocked] = useState(false)
   const hashTapCountRef = useRef(0)
   const lastHashTapTimeRef = useRef(0)
 
+  // Streamed state
+  const [sports, setSports] = useState([])
+  const [matchFilter, setMatchFilter] = useState('live')
+  const [matches, setMatches] = useState([])
+  const [sportId, setSportId] = useState('')
+  const [loadingSports, setLoadingSports] = useState(false)
+  const [loadingMatches, setLoadingMatches] = useState(false)
+
+  useEffect(() => {
+    if (provider !== 'streamed') return
+    setLoadingSports(true)
+    getSports()
+      .then(setSports)
+      .catch(() => setSports([]))
+      .finally(() => setLoadingSports(false))
+  }, [provider])
+
+  useEffect(() => {
+    if (provider !== 'streamed') return
+    setLoadingMatches(true)
+    const endpoint = sportId ? `${sportId}` : matchFilter
+    getMatches(endpoint)
+      .then(setMatches)
+      .catch(() => setMatches([]))
+      .finally(() => setLoadingMatches(false))
+  }, [provider, matchFilter, sportId])
+
+  const setProvider = (p) => {
+    const next = new URLSearchParams(searchParams)
+    if (p === 'daddylives') next.delete('provider')
+    else next.set('provider', p)
+    setSearchParams(next)
+  }
+
   const watchUrl = (id, source = 'tv') => `/live/watch?id=${encodeURIComponent(id)}&source=${source}`
+
+  /** Build watch URL for a Streamed match (uses first source). */
+  const streamedWatchUrl = (match) => {
+    const first = match.sources?.[0]
+    if (!first) return null
+    const params = new URLSearchParams()
+    params.set('provider', 'streamed')
+    params.set('source', first.source)
+    params.set('sourceId', first.id)
+    if (match.title) params.set('title', match.title)
+    return `/live/watch?${params.toString()}`
+  }
 
   const handleLetterClick = (letter) => {
     if (letter !== '#') {
@@ -62,6 +118,110 @@ export default function LiveChannels() {
         <h1 className={styles.title}>Live TV & Sports</h1>
       </div>
 
+      <div className={styles.providerTabs}>
+        <button
+          type="button"
+          className={provider === 'daddylives' ? styles.providerTabActive : styles.providerTab}
+          onClick={() => setProvider('daddylives')}
+        >
+          📺 Live TV (Daddylives)
+        </button>
+        <button
+          type="button"
+          className={provider === 'streamed' ? styles.providerTabActive : styles.providerTab}
+          onClick={() => setProvider('streamed')}
+        >
+          ⚽ Sports (Streamed)
+        </button>
+      </div>
+
+      {provider === 'streamed' ? (
+        <>
+          <div className={styles.streamedToolbar}>
+            <div className={styles.streamedFilters}>
+              {STREAMED_MATCH_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  className={matchFilter === f.value && !sportId ? styles.letterActive : styles.letterBtn}
+                  onClick={() => { setSportId(''); setMatchFilter(f.value) }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {!loadingSports && sports.length > 0 && (
+              <select
+                value={sportId}
+                onChange={(e) => { setSportId(e.target.value); setMatchFilter('') }}
+                className={styles.sportSelect}
+                aria-label="Sport"
+              >
+                <option value="">All sports</option>
+                {sports.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          {loadingMatches ? (
+            <p className={styles.empty}>Loading matches…</p>
+          ) : matches.length === 0 ? (
+            <p className={styles.empty}>No matches right now. Try “All” or another sport.</p>
+          ) : (
+            <p className={styles.resultCount}>
+              {matches.length} match{matches.length !== 1 ? 'es' : ''}
+            </p>
+          )}
+          <div className={styles.channelList}>
+            {!loadingMatches && matches.length > 0 && (
+              <ul className={styles.cardGrid}>
+                {matches.map((match) => {
+                  const url = streamedWatchUrl(match)
+                  const posterUrl = match.poster ? getProxyUrl(match.poster) : null
+                  const homeBadge = match.teams?.home?.badge ? getBadgeUrl(match.teams.home.badge) : null
+                  const awayBadge = match.teams?.away?.badge ? getBadgeUrl(match.teams.away.badge) : null
+                  return (
+                    <li key={match.id}>
+                      {url ? (
+                        <Link to={url} className={styles.matchCard}>
+                          <div className={styles.matchCardThumb}>
+                            {posterUrl ? (
+                              <img src={posterUrl} alt="" className={styles.matchCardImg} />
+                            ) : (
+                              <span className={styles.matchCardIcon}>⚽</span>
+                            )}
+                          </div>
+                          <div className={styles.matchCardBody}>
+                            <span className={styles.matchCardTitle}>{match.title}</span>
+                            {match.teams?.home && match.teams?.away && (
+                              <div className={styles.matchCardTeams}>
+                                {homeBadge && <img src={homeBadge} alt="" className={styles.matchBadge} />}
+                                <span className={styles.matchVs}>vs</span>
+                                {awayBadge && <img src={awayBadge} alt="" className={styles.matchBadge} />}
+                              </div>
+                            )}
+                            <span className={styles.matchCardMeta}>
+                              {new Date(match.date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                              {match.popular && ' • Popular'}
+                            </span>
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className={styles.matchCardUnavailable}>
+                          <span className={styles.matchCardTitle}>{match.title}</span>
+                          <span className={styles.matchCardMeta}>No stream source</span>
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
       {/* <p className={styles.intro}>
         {LIVE_TV_CHANNELS.length} live channels via{' '}
         <a href="https://daddylives.nl/api" target="_blank" rel="noopener noreferrer">Daddylives</a>.
@@ -159,6 +319,8 @@ export default function LiveChannels() {
             ))}
           </ul>
         </div>
+      )}
+        </>
       )}
     </section>
   )
