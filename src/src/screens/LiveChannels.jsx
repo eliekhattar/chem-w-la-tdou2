@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { LIVE_TV_CHANNELS, ADULT_CHANNELS, getChannelLetter } from '../api/daddylives'
 import { getSports, getMatches, getBadgeUrl, getProxyUrl } from '../api/streamed'
+import { getChannels, getSportsEvents, flattenEvents, buildPlayerUrl } from '../api/cdnlive'
 import styles from './LiveChannels.module.css'
 
 const LETTERS = ['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '#']
@@ -14,9 +15,18 @@ const STREAMED_MATCH_FILTERS = [
   { value: 'all', label: 'All' },
 ]
 
+const CDNLIVE_SPORTS = [
+  { value: '', label: 'All' },
+  { value: 'soccer', label: 'Soccer' },
+  { value: 'nfl', label: 'NFL' },
+  { value: 'nba', label: 'NBA' },
+  { value: 'nhl', label: 'NHL' },
+]
+
 export default function LiveChannels() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const provider = searchParams.get('provider') === 'streamed' ? 'streamed' : 'daddylives'
+  const providerParam = searchParams.get('provider')
+  const provider = providerParam === 'streamed' ? 'streamed' : providerParam === 'cdnlive' ? 'cdnlive' : 'daddylives'
 
   const [searchQuery, setSearchQuery] = useState('')
   const [letterFilter, setLetterFilter] = useState('All')
@@ -31,6 +41,14 @@ export default function LiveChannels() {
   const [sportId, setSportId] = useState('')
   const [loadingSports, setLoadingSports] = useState(false)
   const [loadingMatches, setLoadingMatches] = useState(false)
+
+  // CDN Live state: 'channels' | 'events'
+  const [cdnLiveMode, setCdnLiveMode] = useState('channels')
+  const [cdnChannels, setCdnChannels] = useState([])
+  const [cdnEvents, setCdnEvents] = useState([])
+  const [cdnSportFilter, setCdnSportFilter] = useState('')
+  const [loadingCdnChannels, setLoadingCdnChannels] = useState(false)
+  const [loadingCdnEvents, setLoadingCdnEvents] = useState(false)
 
   useEffect(() => {
     if (provider !== 'streamed') return
@@ -58,6 +76,26 @@ export default function LiveChannels() {
     setSearchParams(next)
   }
 
+  useEffect(() => {
+    if (provider !== 'cdnlive') return
+    if (cdnLiveMode === 'channels') {
+      setLoadingCdnChannels(true)
+      getChannels()
+        .then((data) => setCdnChannels(data.channels || []))
+        .catch(() => setCdnChannels([]))
+        .finally(() => setLoadingCdnChannels(false))
+    }
+  }, [provider, cdnLiveMode])
+
+  useEffect(() => {
+    if (provider !== 'cdnlive' || cdnLiveMode !== 'events') return
+    setLoadingCdnEvents(true)
+    getSportsEvents(cdnSportFilter)
+      .then((data) => setCdnEvents(flattenEvents(data)))
+      .catch(() => setCdnEvents([]))
+      .finally(() => setLoadingCdnEvents(false))
+  }, [provider, cdnLiveMode, cdnSportFilter])
+
   const watchUrl = (id, source = 'tv') => `/live/watch?id=${encodeURIComponent(id)}&source=${source}`
 
   /** Build watch URL for a Streamed match (uses first source). */
@@ -69,6 +107,28 @@ export default function LiveChannels() {
     params.set('source', first.source)
     params.set('sourceId', first.id)
     if (match.title) params.set('title', match.title)
+    return `/live/watch?${params.toString()}`
+  }
+
+  /** Build watch URL for CDN Live channel. */
+  const cdnLiveChannelWatchUrl = (ch) => {
+    const params = new URLSearchParams()
+    params.set('provider', 'cdnlive')
+    params.set('name', ch.name)
+    params.set('code', ch.code)
+    params.set('title', ch.name)
+    return `/live/watch?${params.toString()}`
+  }
+
+  /** Build watch URL for CDN Live event (first channel). */
+  const cdnLiveEventWatchUrl = ({ event }) => {
+    const first = event.channels?.[0]
+    if (!first) return null
+    const params = new URLSearchParams()
+    params.set('provider', 'cdnlive')
+    params.set('name', first.channel_name)
+    params.set('code', first.channel_code)
+    params.set('title', `${event.homeTeam} vs ${event.awayTeam}`)
     return `/live/watch?${params.toString()}`
   }
 
@@ -133,9 +193,127 @@ export default function LiveChannels() {
         >
           ⚽ Sports (Streamed)
         </button>
+        <button
+          type="button"
+          className={provider === 'cdnlive' ? styles.providerTabActive : styles.providerTab}
+          onClick={() => setProvider('cdnlive')}
+        >
+          📡 CDN Live / StreamSports99
+        </button>
       </div>
 
-      {provider === 'streamed' ? (
+      {provider === 'cdnlive' ? (
+        <>
+          <div className={styles.streamedToolbar}>
+            <button
+              type="button"
+              className={cdnLiveMode === 'channels' ? styles.letterActive : styles.letterBtn}
+              onClick={() => setCdnLiveMode('channels')}
+            >
+              Channels
+            </button>
+            <button
+              type="button"
+              className={cdnLiveMode === 'events' ? styles.letterActive : styles.letterBtn}
+              onClick={() => setCdnLiveMode('events')}
+            >
+              Sports events
+            </button>
+            {cdnLiveMode === 'events' && (
+              <select
+                value={cdnSportFilter}
+                onChange={(e) => setCdnSportFilter(e.target.value)}
+                className={styles.sportSelect}
+                aria-label="Sport"
+              >
+                {CDNLIVE_SPORTS.map((s) => (
+                  <option key={s.value || 'all'} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          {cdnLiveMode === 'channels' && (
+            <>
+              {loadingCdnChannels ? (
+                <p className={styles.empty}>Loading channels…</p>
+              ) : (
+                <>
+                  <p className={styles.resultCount}>
+                    {cdnChannels.length} channel{cdnChannels.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className={styles.channelList}>
+                    <ul className={styles.cardGrid}>
+                      {cdnChannels.map((ch) => (
+                        <li key={`${ch.code}-${ch.name}`}>
+                          <Link to={cdnLiveChannelWatchUrl(ch)} className={styles.cdnChannelCard}>
+                            {ch.image ? (
+                              <img src={ch.image} alt="" className={styles.cdnChannelImg} />
+                            ) : (
+                              <span className={styles.matchCardIcon}>📺</span>
+                            )}
+                            <span className={styles.channelName}>{ch.name}</span>
+                            {ch.status && (
+                              <span className={ch.status === 'offline' ? styles.statusOffline : ch.status === 'online' ? styles.statusOnline : styles.matchCardMeta}>
+                                {ch.status}
+                              </span>
+                            )}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          {cdnLiveMode === 'events' && (
+            <>
+              {loadingCdnEvents ? (
+                <p className={styles.empty}>Loading events…</p>
+              ) : cdnEvents.length === 0 ? (
+                <p className={styles.empty}>No events. Try another sport or check back later.</p>
+              ) : (
+                <>
+                  <p className={styles.resultCount}>
+                    {cdnEvents.length} event{cdnEvents.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className={styles.channelList}>
+                    <ul className={styles.cardGrid}>
+                      {cdnEvents.map(({ event, sport }) => {
+                        const url = cdnLiveEventWatchUrl({ event })
+                        const title = `${event.homeTeam} vs ${event.awayTeam}`
+                        return (
+                          <li key={event.gameID}>
+                            {url ? (
+                              <Link to={url} className={styles.matchCard}>
+                                <div className={styles.matchCardThumb}>
+                                  <span className={styles.matchCardIcon}>⚽</span>
+                                </div>
+                                <div className={styles.matchCardBody}>
+                                  <span className={styles.matchCardTitle}>{title}</span>
+                                  <span className={styles.matchCardMeta}>
+                                    {event.tournament} • {event.time} • {sport}
+                                    {event.channels?.length ? ` • ${event.channels.length} channel(s)` : ''}
+                                  </span>
+                                </div>
+                              </Link>
+                            ) : (
+                              <div className={styles.matchCardUnavailable}>
+                                <span className={styles.matchCardTitle}>{title}</span>
+                                <span className={styles.matchCardMeta}>No stream</span>
+                              </div>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </>
+      ) : provider === 'streamed' ? (
         <>
           <div className={styles.streamedToolbar}>
             <div className={styles.streamedFilters}>
@@ -222,6 +400,7 @@ export default function LiveChannels() {
         </>
       ) : (
         <>
+      {/* Daddylives */}
       {/* <p className={styles.intro}>
         {LIVE_TV_CHANNELS.length} live channels via{' '}
         <a href="https://daddylives.nl/api" target="_blank" rel="noopener noreferrer">Daddylives</a>.

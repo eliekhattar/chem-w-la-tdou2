@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { buildDaddylivesEmbedUrl, LIVE_TV_CHANNELS, ADULT_CHANNELS } from '../api/daddylives'
 import { getStreams } from '../api/streamed'
+import { buildPlayerUrl } from '../api/cdnlive'
 import styles from './LiveWatch.module.css'
 
 const PLAYER_OPTIONS = Array.from({ length: 13 }, (_, i) => i + 1)
@@ -9,7 +10,8 @@ const ALL_CHANNELS = [...LIVE_TV_CHANNELS, ...ADULT_CHANNELS]
 
 export default function LiveWatch() {
   const [searchParams] = useSearchParams()
-  const provider = searchParams.get('provider') === 'streamed' ? 'streamed' : 'daddylives'
+  const providerParam = searchParams.get('provider')
+  const provider = providerParam === 'streamed' ? 'streamed' : providerParam === 'cdnlive' ? 'cdnlive' : 'daddylives'
 
   // Daddylives
   const id = searchParams.get('id') || ''
@@ -20,6 +22,11 @@ export default function LiveWatch() {
   const streamedSource = searchParams.get('source') || ''
   const streamedSourceId = searchParams.get('sourceId') || ''
   const streamedTitle = searchParams.get('title') || ''
+
+  // CDN Live
+  const cdnLiveName = searchParams.get('name') || ''
+  const cdnLiveCode = searchParams.get('code') || ''
+  const cdnLiveTitle = searchParams.get('title') || ''
 
   const [streams, setStreams] = useState([])
   const [streamsLoading, setStreamsLoading] = useState(false)
@@ -56,10 +63,17 @@ export default function LiveWatch() {
   const streamedEmbedSrc = currentStream?.embedUrl || ''
 
   const isStreamed = provider === 'streamed'
+  const isCdnLive = provider === 'cdnlive'
   const hasStreamedParams = streamedSource && streamedSourceId
+  const hasCdnLiveParams = cdnLiveName && cdnLiveCode
   const hasDaddylivesId = id.trim()
 
-  if (!isStreamed && !hasDaddylivesId) {
+  const cdnLiveEmbedSrc = useMemo(
+    () => (hasCdnLiveParams ? buildPlayerUrl(cdnLiveName, cdnLiveCode) : ''),
+    [cdnLiveName, cdnLiveCode, hasCdnLiveParams]
+  )
+
+  if (!isStreamed && !isCdnLive && !hasDaddylivesId) {
     return (
       <section className={styles.section}>
         <Link to="/live" className={styles.backBtn}>← Back to Live</Link>
@@ -73,6 +87,40 @@ export default function LiveWatch() {
       <section className={styles.section}>
         <Link to="/live?provider=streamed" className={styles.backBtn}>← Back to Sports</Link>
         <p className={styles.empty}>Missing stream source. Pick a match from Sports (Streamed).</p>
+      </section>
+    )
+  }
+
+  if (isCdnLive && !hasCdnLiveParams) {
+    return (
+      <section className={styles.section}>
+        <Link to="/live?provider=cdnlive" className={styles.backBtn}>← Back to CDN Live</Link>
+        <p className={styles.empty}>Missing channel. Pick a channel or event from CDN Live.</p>
+      </section>
+    )
+  }
+
+  if (isCdnLive) {
+    const title = cdnLiveTitle || cdnLiveName || 'CDN Live'
+    return (
+      <section className={styles.section}>
+        <div className={styles.headerRow}>
+          <Link to="/live?provider=cdnlive" className={styles.backBtn}>
+            ← Back to CDN Live
+          </Link>
+        </div>
+        <h1 className={styles.watchTitle}>{title}</h1>
+        {cdnLiveEmbedSrc && (
+          <div className={styles.playerWrap}>
+            <iframe
+              src={cdnLiveEmbedSrc}
+              title={title}
+              className={styles.iframe}
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            />
+          </div>
+        )}
       </section>
     )
   }
