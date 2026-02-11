@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { LIVE_TV_CHANNELS, ADULT_CHANNELS, getChannelLetter } from '../api/daddylives'
-import { getSports, getMatches, getBadgeUrl, getProxyUrl } from '../api/streamed'
+import { getMatches, getBadgeUrl, getProxyUrl } from '../api/streamed'
 import { getChannels, getSportsEvents, flattenEvents, buildPlayerUrl } from '../api/cdnlive'
 import styles from './LiveChannels.module.css'
 
@@ -13,14 +13,6 @@ const STREAMED_MATCH_FILTERS = [
   { value: 'live', label: 'Live' },
   { value: 'all-today', label: "Today" },
   { value: 'all', label: 'All' },
-]
-
-const CDNLIVE_SPORTS = [
-  { value: '', label: 'All' },
-  { value: 'soccer', label: 'Soccer' },
-  { value: 'nfl', label: 'NFL' },
-  { value: 'nba', label: 'NBA' },
-  { value: 'nhl', label: 'NHL' },
 ]
 
 export default function LiveChannels() {
@@ -35,39 +27,25 @@ export default function LiveChannels() {
   const lastHashTapTimeRef = useRef(0)
 
   // Streamed state
-  const [sports, setSports] = useState([])
   const [matchFilter, setMatchFilter] = useState('live')
   const [matches, setMatches] = useState([])
-  const [sportId, setSportId] = useState('')
-  const [loadingSports, setLoadingSports] = useState(false)
   const [loadingMatches, setLoadingMatches] = useState(false)
 
   // CDN Live state: 'channels' | 'events'
   const [cdnLiveMode, setCdnLiveMode] = useState('channels')
   const [cdnChannels, setCdnChannels] = useState([])
   const [cdnEvents, setCdnEvents] = useState([])
-  const [cdnSportFilter, setCdnSportFilter] = useState('')
   const [loadingCdnChannels, setLoadingCdnChannels] = useState(false)
   const [loadingCdnEvents, setLoadingCdnEvents] = useState(false)
 
   useEffect(() => {
     if (provider !== 'streamed') return
-    setLoadingSports(true)
-    getSports()
-      .then(setSports)
-      .catch(() => setSports([]))
-      .finally(() => setLoadingSports(false))
-  }, [provider])
-
-  useEffect(() => {
-    if (provider !== 'streamed') return
     setLoadingMatches(true)
-    const endpoint = sportId ? `${sportId}` : matchFilter
-    getMatches(endpoint)
+    getMatches(matchFilter)
       .then(setMatches)
       .catch(() => setMatches([]))
       .finally(() => setLoadingMatches(false))
-  }, [provider, matchFilter, sportId])
+  }, [provider, matchFilter])
 
   const setProvider = (p) => {
     const next = new URLSearchParams(searchParams)
@@ -90,11 +68,11 @@ export default function LiveChannels() {
   useEffect(() => {
     if (provider !== 'cdnlive' || cdnLiveMode !== 'events') return
     setLoadingCdnEvents(true)
-    getSportsEvents(cdnSportFilter)
+    getSportsEvents('')
       .then((data) => setCdnEvents(flattenEvents(data)))
       .catch(() => setCdnEvents([]))
       .finally(() => setLoadingCdnEvents(false))
-  }, [provider, cdnLiveMode, cdnSportFilter])
+  }, [provider, cdnLiveMode])
 
   const watchUrl = (id, source = 'tv') => `/live/watch?id=${encodeURIComponent(id)}&source=${source}`
 
@@ -148,6 +126,30 @@ export default function LiveChannels() {
     }
     setLetterFilter('#')
   }
+
+  /** Streamed: group matches by category (sport), sorted by sport name */
+  const matchesBySport = useMemo(() => {
+    const bySport = {}
+    matches.forEach((match) => {
+      const sport = match.category || 'Other'
+      if (!bySport[sport]) bySport[sport] = []
+      bySport[sport].push(match)
+    })
+    const sorted = Object.keys(bySport).sort((a, b) => a.localeCompare(b))
+    return sorted.map((sport) => ({ sport, list: bySport[sport] }))
+  }, [matches])
+
+  /** CDN Live: group events by sport, sorted by sport name */
+  const cdnEventsBySport = useMemo(() => {
+    const bySport = {}
+    cdnEvents.forEach(({ event, sport }) => {
+      const key = sport || 'Other'
+      if (!bySport[key]) bySport[key] = []
+      bySport[key].push({ event, sport: key })
+    })
+    const sorted = Object.keys(bySport).sort((a, b) => a.localeCompare(b))
+    return sorted.map((sport) => ({ sport, list: bySport[sport] }))
+  }, [cdnEvents])
 
   const { filteredChannels, letterCounts } = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -219,18 +221,6 @@ export default function LiveChannels() {
             >
               Sports events
             </button>
-            {cdnLiveMode === 'events' && (
-              <select
-                value={cdnSportFilter}
-                onChange={(e) => setCdnSportFilter(e.target.value)}
-                className={styles.sportSelect}
-                aria-label="Sport"
-              >
-                {CDNLIVE_SPORTS.map((s) => (
-                  <option key={s.value || 'all'} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            )}
           </div>
           {cdnLiveMode === 'channels' && (
             <>
@@ -270,45 +260,45 @@ export default function LiveChannels() {
             <>
               {loadingCdnEvents ? (
                 <p className={styles.empty}>Loading events…</p>
-              ) : cdnEvents.length === 0 ? (
-                <p className={styles.empty}>No events. Try another sport or check back later.</p>
+              ) : cdnEventsBySport.length === 0 ? (
+                <p className={styles.empty}>No events. Check back later.</p>
               ) : (
-                <>
-                  <p className={styles.resultCount}>
-                    {cdnEvents.length} event{cdnEvents.length !== 1 ? 's' : ''}
-                  </p>
-                  <div className={styles.channelList}>
-                    <ul className={styles.cardGrid}>
-                      {cdnEvents.map(({ event, sport }) => {
-                        const url = cdnLiveEventWatchUrl({ event })
-                        const title = `${event.homeTeam} vs ${event.awayTeam}`
-                        return (
-                          <li key={event.gameID}>
-                            {url ? (
-                              <Link to={url} className={styles.matchCard}>
-                                <div className={styles.matchCardThumb}>
-                                  <span className={styles.matchCardIcon}>⚽</span>
-                                </div>
-                                <div className={styles.matchCardBody}>
+                <div className={styles.sportRows}>
+                  {cdnEventsBySport.map(({ sport, list }) => (
+                    <div key={sport} className={styles.sportRow}>
+                      <h2 className={styles.sportRowTitle}>{sport}</h2>
+                      <ul className={styles.sportRowList}>
+                        {list.map(({ event, sport: sportLabel }) => {
+                          const url = cdnLiveEventWatchUrl({ event })
+                          const title = `${event.homeTeam} vs ${event.awayTeam}`
+                          return (
+                            <li key={event.gameID} className={styles.sportRowCard}>
+                              {url ? (
+                                <Link to={url} className={styles.matchCard}>
+                                  <div className={styles.matchCardThumb}>
+                                    <span className={styles.matchCardIcon}>⚽</span>
+                                  </div>
+                                  <div className={styles.matchCardBody}>
+                                    <span className={styles.matchCardTitle}>{title}</span>
+                                    <span className={styles.matchCardMeta}>
+                                      {event.tournament} • {event.time}
+                                      {event.channels?.length ? ` • ${event.channels.length} channel(s)` : ''}
+                                    </span>
+                                  </div>
+                                </Link>
+                              ) : (
+                                <div className={styles.matchCardUnavailable}>
                                   <span className={styles.matchCardTitle}>{title}</span>
-                                  <span className={styles.matchCardMeta}>
-                                    {event.tournament} • {event.time} • {sport}
-                                    {event.channels?.length ? ` • ${event.channels.length} channel(s)` : ''}
-                                  </span>
+                                  <span className={styles.matchCardMeta}>No stream</span>
                                 </div>
-                              </Link>
-                            ) : (
-                              <div className={styles.matchCardUnavailable}>
-                                <span className={styles.matchCardTitle}>{title}</span>
-                                <span className={styles.matchCardMeta}>No stream</span>
-                              </div>
-                            )}
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </div>
-                </>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               )}
             </>
           )}
@@ -321,82 +311,69 @@ export default function LiveChannels() {
                 <button
                   key={f.value}
                   type="button"
-                  className={matchFilter === f.value && !sportId ? styles.letterActive : styles.letterBtn}
-                  onClick={() => { setSportId(''); setMatchFilter(f.value) }}
+                  className={matchFilter === f.value ? styles.letterActive : styles.letterBtn}
+                  onClick={() => setMatchFilter(f.value)}
                 >
                   {f.label}
                 </button>
               ))}
             </div>
-            {!loadingSports && sports.length > 0 && (
-              <select
-                value={sportId}
-                onChange={(e) => { setSportId(e.target.value); setMatchFilter('') }}
-                className={styles.sportSelect}
-                aria-label="Sport"
-              >
-                <option value="">All sports</option>
-                {sports.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            )}
           </div>
           {loadingMatches ? (
             <p className={styles.empty}>Loading matches…</p>
-          ) : matches.length === 0 ? (
-            <p className={styles.empty}>No matches right now. Try “All” or another sport.</p>
+          ) : matchesBySport.length === 0 ? (
+            <p className={styles.empty}>No matches right now. Try Live, Today, or All.</p>
           ) : (
-            <p className={styles.resultCount}>
-              {matches.length} match{matches.length !== 1 ? 'es' : ''}
-            </p>
-          )}
-          <div className={styles.channelList}>
-            {!loadingMatches && matches.length > 0 && (
-              <ul className={styles.cardGrid}>
-                {matches.map((match) => {
-                  const url = streamedWatchUrl(match)
-                  const posterUrl = match.poster ? getProxyUrl(match.poster) : null
-                  const homeBadge = match.teams?.home?.badge ? getBadgeUrl(match.teams.home.badge) : null
-                  const awayBadge = match.teams?.away?.badge ? getBadgeUrl(match.teams.away.badge) : null
-                  return (
-                    <li key={match.id}>
-                      {url ? (
-                        <Link to={url} className={styles.matchCard}>
-                          <div className={styles.matchCardThumb}>
-                            {posterUrl ? (
-                              <img src={posterUrl} alt="" className={styles.matchCardImg} />
-                            ) : (
-                              <span className={styles.matchCardIcon}>⚽</span>
-                            )}
-                          </div>
-                          <div className={styles.matchCardBody}>
-                            <span className={styles.matchCardTitle}>{match.title}</span>
-                            {match.teams?.home && match.teams?.away && (
-                              <div className={styles.matchCardTeams}>
-                                {homeBadge && <img src={homeBadge} alt="" className={styles.matchBadge} />}
-                                <span className={styles.matchVs}>vs</span>
-                                {awayBadge && <img src={awayBadge} alt="" className={styles.matchBadge} />}
+            <div className={styles.sportRows}>
+              {matchesBySport.map(({ sport, list }) => (
+                <div key={sport} className={styles.sportRow}>
+                  <h2 className={styles.sportRowTitle}>{sport}</h2>
+                  <ul className={styles.sportRowList}>
+                    {list.map((match) => {
+                      const url = streamedWatchUrl(match)
+                      const posterUrl = match.poster ? getProxyUrl(match.poster) : null
+                      const homeBadge = match.teams?.home?.badge ? getBadgeUrl(match.teams.home.badge) : null
+                      const awayBadge = match.teams?.away?.badge ? getBadgeUrl(match.teams.away.badge) : null
+                      return (
+                        <li key={match.id} className={styles.sportRowCard}>
+                          {url ? (
+                            <Link to={url} className={styles.matchCard}>
+                              <div className={styles.matchCardThumb}>
+                                {posterUrl ? (
+                                  <img src={posterUrl} alt="" className={styles.matchCardImg} />
+                                ) : (
+                                  <span className={styles.matchCardIcon}>⚽</span>
+                                )}
                               </div>
-                            )}
-                            <span className={styles.matchCardMeta}>
-                              {new Date(match.date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
-                              {match.popular && ' • Popular'}
-                            </span>
-                          </div>
-                        </Link>
-                      ) : (
-                        <div className={styles.matchCardUnavailable}>
-                          <span className={styles.matchCardTitle}>{match.title}</span>
-                          <span className={styles.matchCardMeta}>No stream source</span>
-                        </div>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
+                              <div className={styles.matchCardBody}>
+                                <span className={styles.matchCardTitle}>{match.title}</span>
+                                {match.teams?.home && match.teams?.away && (
+                                  <div className={styles.matchCardTeams}>
+                                    {homeBadge && <img src={homeBadge} alt="" className={styles.matchBadge} />}
+                                    <span className={styles.matchVs}>vs</span>
+                                    {awayBadge && <img src={awayBadge} alt="" className={styles.matchBadge} />}
+                                  </div>
+                                )}
+                                <span className={styles.matchCardMeta}>
+                                  {new Date(match.date).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                                  {match.popular && ' • Popular'}
+                                </span>
+                              </div>
+                            </Link>
+                          ) : (
+                            <div className={styles.matchCardUnavailable}>
+                              <span className={styles.matchCardTitle}>{match.title}</span>
+                              <span className={styles.matchCardMeta}>No stream source</span>
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       ) : (
         <>
