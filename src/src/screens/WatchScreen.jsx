@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { getMovieDetails, getTvDetails } from '../api/tmdb'
 import VidkingPlayer from '../components/VidkingPlayer'
+import VidSrcPlayer from '../components/VidSrcPlayer'
 import EpisodePicker from '../components/EpisodePicker'
 import styles from '../App.module.css'
 
@@ -13,6 +14,7 @@ export default function WatchScreen() {
 
   const [details, setDetails] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [source, setSource] = useState('vidking') // 'vidking' | 'vidsrc'
 
   const tmdbId = id ? Number(id) : null
   const isTv = type === 'tv'
@@ -64,16 +66,46 @@ export default function WatchScreen() {
           onSelect={handleEpisodeSelect}
         />
       )}
+      <div className={styles.sourceRow}>
+        <span className={styles.sourceLabel}>Player:</span>
+        <div className={styles.sourceTabs}>
+          <button
+            type="button"
+            className={source === 'vidking' ? styles.sourceTabActive : styles.sourceTab}
+            onClick={() => setSource('vidking')}
+          >
+            Vidking
+          </button>
+          <button
+            type="button"
+            className={source === 'vidsrc' ? styles.sourceTabActive : styles.sourceTab}
+            onClick={() => setSource('vidsrc')}
+          >
+            VidSrc
+          </button>
+        </div>
+      </div>
       <div className={styles.playerWrap}>
-        <VidkingPlayer
-          type={isTv ? 'tv' : 'movie'}
-          tmdbId={tmdbId}
-          season={season}
-          episode={episode}
-          autoPlay
-          nextEpisode
-          episodeSelector
-        />
+        {source === 'vidking' ? (
+          <VidkingPlayer
+            type={isTv ? 'tv' : 'movie'}
+            tmdbId={tmdbId}
+            season={season}
+            episode={episode}
+            autoPlay
+            nextEpisode
+            episodeSelector
+          />
+        ) : (
+          <VidSrcPlayer
+            type={isTv ? 'tv' : 'movie'}
+            tmdbId={tmdbId}
+            season={season}
+            episode={episode}
+            autoplay
+            autonext={isTv}
+          />
+        )}
       </div>
     </section>
   )

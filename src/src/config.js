@@ -1,6 +1,9 @@
 // Vidking embed base URL - https://www.vidking.net/#documentation
 export const VIDKING_BASE = 'https://www.vidking.net/embed'
 
+// VidSrc embed - https://vidsrcme.ru/api/
+export const VIDSRC_EMBED_BASE = 'https://vidsrc-embed.ru'
+
 // Daddylives embed - https://daddylives.nl/api
 export const DADDYLIVES_EMBED_BASE = 'https://daddylives.nl/embed/stream.php'
 

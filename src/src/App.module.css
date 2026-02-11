@@ -229,6 +229,49 @@
   }
 }
 
+.sourceRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sourceLabel {
+  font-size: 0.9rem;
+  color: var(--text-muted, #888);
+  font-weight: 500;
+}
+
+.sourceTabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.sourceTab,
+.sourceTabActive {
+  font-family: var(--font-title);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius, 8px);
+  border: 1px solid var(--border, #333);
+  background: var(--surface, #1a1a1a);
+  color: var(--text, #f5f5f5);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.sourceTab:hover {
+  background: var(--surface-elevated, #252525);
+  border-color: var(--accent, #05c653);
+}
+
+.sourceTabActive {
+  background: var(--accent, #05c653);
+  border-color: var(--accent, #05c653);
+  color: #0d0d0d;
+}
+
 .playerWrap {
   margin-top: 0.5rem;
   border-radius: var(--radius-lg, 12px);
