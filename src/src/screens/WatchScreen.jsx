@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useSearchParams, Link } from 'react-router-dom'
+import { useParams, useSearchParams, useLocation, Link } from 'react-router-dom'
 import { getMovieDetails, getTvDetails } from '../api/tmdb'
 import VidkingPlayer from '../components/VidkingPlayer'
 import VidSrcPlayer from '../components/VidSrcPlayer'
@@ -8,13 +8,15 @@ import styles from '../App.module.css'
 
 export default function WatchScreen() {
   const { type, id } = useParams()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const season = Math.max(1, Number(searchParams.get('season')) || 1)
   const episode = Math.max(1, Number(searchParams.get('episode')) || 1)
+  const returnTo = location.state?.returnTo ?? '/'
 
   const [details, setDetails] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [source, setSource] = useState('vidking') // 'vidking' | 'vidsrc'
+  const [source, setSource] = useState('vidsrc') // 'vidsrc' | 'vidking' — main source is VidSrc
 
   const tmdbId = id ? Number(id) : null
   const isTv = type === 'tv'
@@ -46,7 +48,7 @@ export default function WatchScreen() {
   if (!type || !id) {
     return (
       <section className={styles.watchSection}>
-        <Link to="/" className={styles.backBtn}>← Back to browse</Link>
+        <Link to={returnTo} className={styles.backBtn}>← Back to browse</Link>
         <p className={styles.empty}>Invalid watch URL.</p>
       </section>
     )
@@ -54,7 +56,7 @@ export default function WatchScreen() {
 
   return (
     <section className={styles.watchSection}>
-      <Link to="/" className={styles.backBtn}>
+      <Link to={returnTo} className={styles.backBtn}>
         ← Back to browse
       </Link>
       <h1 className={styles.watchTitle}>{title}</h1>
@@ -71,20 +73,25 @@ export default function WatchScreen() {
         <div className={styles.sourceTabs}>
           <button
             type="button"
-            className={source === 'vidking' ? styles.sourceTabActive : styles.sourceTab}
-            onClick={() => setSource('vidking')}
-          >
-            Vidking
-          </button>
-          <button
-            type="button"
             className={source === 'vidsrc' ? styles.sourceTabActive : styles.sourceTab}
             onClick={() => setSource('vidsrc')}
           >
             VidSrc
           </button>
+          <button
+            type="button"
+            className={source === 'vidking' ? styles.sourceTabActive : styles.sourceTab}
+            onClick={() => setSource('vidking')}
+          >
+            Vidking
+          </button>
         </div>
       </div>
+      {source === 'vidking' && (
+        <p className={styles.providerAdNotice} role="status">
+          This provider may display advertisements. If other sources offer the content you want, we recommend switching to them for a better experience.
+        </p>
+      )}
       <div className={styles.playerWrap}>
         {source === 'vidking' ? (
           <VidkingPlayer

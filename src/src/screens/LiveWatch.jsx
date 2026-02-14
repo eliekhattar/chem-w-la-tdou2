@@ -11,7 +11,7 @@ const ALL_CHANNELS = [...LIVE_TV_CHANNELS, ...ADULT_CHANNELS]
 export default function LiveWatch() {
   const [searchParams] = useSearchParams()
   const providerParam = searchParams.get('provider')
-  const provider = providerParam === 'streamed' ? 'streamed' : providerParam === 'cdnlive' ? 'cdnlive' : 'daddylives'
+  const provider = providerParam === 'daddylives' ? 'daddylives' : providerParam === 'iptvorg' ? 'iptvorg' : providerParam === 'streamed' ? 'streamed' : providerParam === 'cdnlive' ? 'cdnlive' : null
 
   // Daddylives
   const id = searchParams.get('id') || ''
@@ -27,6 +27,10 @@ export default function LiveWatch() {
   const cdnLiveName = searchParams.get('name') || ''
   const cdnLiveCode = searchParams.get('code') || ''
   const cdnLiveTitle = searchParams.get('title') || ''
+
+  // IPTV Org
+  const iptvUrl = searchParams.get('url') || ''
+  const iptvTitle = searchParams.get('title') || 'Stream'
 
   const [streams, setStreams] = useState([])
   const [streamsLoading, setStreamsLoading] = useState(false)
@@ -49,35 +53,37 @@ export default function LiveWatch() {
       .finally(() => setStreamsLoading(false))
   }, [provider, streamedSource, streamedSourceId])
 
-  const channelName = useMemo(
-    () => ALL_CHANNELS.find((ch) => ch.id === id)?.name ?? null,
-    [id]
-  )
-
-  const embedSrc = useMemo(
-    () => buildDaddylivesEmbedUrl({ id, player, source }),
-    [id, player, source]
-  )
-
   const currentStream = streams[selectedStreamIndex]
   const streamedEmbedSrc = currentStream?.embedUrl || ''
 
+  const channelName = useMemo(() => ALL_CHANNELS.find((ch) => ch.id === id)?.name ?? null, [id])
+  const embedSrc = useMemo(() => buildDaddylivesEmbedUrl({ id, player, source }), [id, player, source])
+
   const isStreamed = provider === 'streamed'
   const isCdnLive = provider === 'cdnlive'
+  const isIptvOrg = provider === 'iptvorg'
+  const isDaddylives = provider === 'daddylives'
   const hasStreamedParams = streamedSource && streamedSourceId
   const hasCdnLiveParams = cdnLiveName && cdnLiveCode
+  const hasIptvUrl = iptvUrl.trim().length > 0
   const hasDaddylivesId = id.trim()
 
-  const cdnLiveEmbedSrc = useMemo(
-    () => (hasCdnLiveParams ? buildPlayerUrl(cdnLiveName, cdnLiveCode) : ''),
-    [cdnLiveName, cdnLiveCode, hasCdnLiveParams]
-  )
+  const cdnLiveEmbedSrc = hasCdnLiveParams ? buildPlayerUrl(cdnLiveName, cdnLiveCode) : ''
 
-  if (!isStreamed && !isCdnLive && !hasDaddylivesId) {
+  if (!provider) {
     return (
       <section className={styles.section}>
         <Link to="/live" className={styles.backBtn}>← Back to Live</Link>
-        <p className={styles.empty}>No channel or event ID. Go to Live TV & Sports and pick a channel or enter an ID.</p>
+        <p className={styles.empty}>Pick Live TV, Live Sports, IPTV Org, or Daddylives from the Live screen.</p>
+      </section>
+    )
+  }
+
+  if (isDaddylives && !hasDaddylivesId) {
+    return (
+      <section className={styles.section}>
+        <Link to="/live?provider=daddylives" className={styles.backBtn}>← Back to Daddylives</Link>
+        <p className={styles.empty}>Missing channel ID. Pick a channel from the Daddylives tab.</p>
       </section>
     )
   }
@@ -85,8 +91,8 @@ export default function LiveWatch() {
   if (isStreamed && !hasStreamedParams) {
     return (
       <section className={styles.section}>
-        <Link to="/live?provider=streamed" className={styles.backBtn}>← Back to Sports</Link>
-        <p className={styles.empty}>Missing stream source. Pick a match from Sports (Streamed).</p>
+        <Link to="/live?provider=streamed" className={styles.backBtn}>← Back to Live Sports</Link>
+        <p className={styles.empty}>Missing stream source. Pick a match from Live Sports.</p>
       </section>
     )
   }
@@ -94,19 +100,28 @@ export default function LiveWatch() {
   if (isCdnLive && !hasCdnLiveParams) {
     return (
       <section className={styles.section}>
-        <Link to="/live?provider=cdnlive" className={styles.backBtn}>← Back to CDN Live</Link>
-        <p className={styles.empty}>Missing channel. Pick a channel or event from CDN Live.</p>
+        <Link to="/live?provider=cdnlive" className={styles.backBtn}>← Back to Live TV</Link>
+        <p className={styles.empty}>Missing channel. Pick a channel or event from Live TV.</p>
+      </section>
+    )
+  }
+
+  if (isIptvOrg && !hasIptvUrl) {
+    return (
+      <section className={styles.section}>
+        <Link to="/live?provider=iptvorg" className={styles.backBtn}>← Back to IPTV Org</Link>
+        <p className={styles.empty}>Missing stream URL. Pick a channel from IPTV Org.</p>
       </section>
     )
   }
 
   if (isCdnLive) {
-    const title = cdnLiveTitle || cdnLiveName || 'CDN Live'
+    const title = cdnLiveTitle || cdnLiveName || 'Live TV'
     return (
       <section className={styles.section}>
         <div className={styles.headerRow}>
           <Link to="/live?provider=cdnlive" className={styles.backBtn}>
-            ← Back to CDN Live
+            ← Back to Live TV
           </Link>
         </div>
         <h1 className={styles.watchTitle}>{title}</h1>
@@ -131,7 +146,7 @@ export default function LiveWatch() {
       <section className={styles.section}>
         <div className={styles.headerRow}>
           <Link to="/live?provider=streamed" className={styles.backBtn}>
-            ← Back to Sports
+            ← Back to Live Sports
           </Link>
           {streams.length > 1 && (
             <div className={styles.playerSwitcher}>
@@ -174,42 +189,75 @@ export default function LiveWatch() {
     )
   }
 
-  return (
-    <section className={styles.section}>
-      <div className={styles.headerRow}>
-        <Link to="/live" className={styles.backBtn}>
-          ← Back to Live
-        </Link>
-        <div className={styles.playerSwitcher}>
-          <span className={styles.playerLabel}>Player:</span>
-          <div className={styles.playerBtns}>
-            {PLAYER_OPTIONS.map((p) => (
-              <Link
-                key={p}
-                to={`/live/watch?id=${encodeURIComponent(id)}&source=${source}&player=${p}`}
-                className={player === p ? styles.playerBtnActive : styles.playerBtn}
-              >
-                {p}
-              </Link>
-            ))}
+  if (isIptvOrg) {
+    const title = decodeURIComponent(iptvTitle || 'Stream')
+    const streamSrc = decodeURIComponent(iptvUrl)
+    return (
+      <section className={styles.section}>
+        <div className={styles.headerRow}>
+          <Link to="/live?provider=iptvorg" className={styles.backBtn}>
+            ← Back to IPTV Org
+          </Link>
+        </div>
+        <h1 className={styles.watchTitle}>{title}</h1>
+        <div className={styles.playerWrap}>
+          <video
+            key={streamSrc}
+            className={styles.videoNative}
+            controls
+            autoPlay
+            playsInline
+            src={streamSrc}
+            title={title}
+          />
+        </div>
+      </section>
+    )
+  }
+
+  if (isDaddylives && hasDaddylivesId) {
+    return (
+      <section className={styles.section}>
+        <div className={styles.headerRow}>
+          <Link to="/live?provider=daddylives" className={styles.backBtn}>
+            ← Back to Daddylives
+          </Link>
+          <div className={styles.playerSwitcher}>
+            <span className={styles.playerLabel}>Player:</span>
+            <div className={styles.playerBtns}>
+              {PLAYER_OPTIONS.map((p) => (
+                <Link
+                  key={p}
+                  to={`/live/watch?id=${encodeURIComponent(id)}&source=${source}&provider=daddylives&player=${p}`}
+                  className={player === p ? styles.playerBtnActive : styles.playerBtn}
+                >
+                  {p}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-      <h1 className={styles.watchTitle}>{channelName || (source === 'tv2' ? 'Sports / PPV' : 'Live TV')}</h1>
-      {!channelName && (
-        <p className={styles.sourceNote}>
-          ID: <code>{id}</code>
+        <h1 className={styles.watchTitle}>{channelName || (source === 'tv2' ? 'Sports / PPV' : 'Live TV')}</h1>
+        {!channelName && (
+          <p className={styles.sourceNote}>
+            ID: <code>{id}</code>
+          </p>
+        )}
+        <p className={styles.adNotice} role="status">
+          This provider may display advertisements. If other sources offer the content you want, we recommend switching to them for a better experience.
         </p>
-      )}
-      <div className={styles.playerWrap}>
-        <iframe
-          src={embedSrc}
-          title={channelName || 'Live stream'}
-          className={styles.iframe}
-          allowFullScreen
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        />
-      </div>
-    </section>
-  )
+        <div className={styles.playerWrap}>
+          <iframe
+            src={embedSrc}
+            title={channelName || 'Live stream'}
+            className={styles.iframe}
+            allowFullScreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          />
+        </div>
+      </section>
+    )
+  }
+
+  return null
 }

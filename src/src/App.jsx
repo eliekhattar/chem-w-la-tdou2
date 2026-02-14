@@ -4,21 +4,22 @@ import { getTrendingMovies, getTrendingTv, searchMovies, searchTv, hasApiKey } f
 import WatchScreen from './screens/WatchScreen'
 import LiveChannels from './screens/LiveChannels'
 import LiveWatch from './screens/LiveWatch'
-import HomePage, { SECTION_IDS } from './screens/HomePage'
+import HomePage from './screens/HomePage'
+import MoviesScreen from './screens/MoviesScreen'
+import SeriesScreen from './screens/SeriesScreen'
 import styles from './App.module.css'
 import logo from '../../src/assets/Klogo.png'
 
 export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
-  const isBrowse = location.pathname === '/' || location.pathname === ''
-
+  const pathname = location.pathname
   const [trendingMovies, setTrendingMovies] = useState([])
   const [trendingTv, setTrendingTv] = useState([])
+  const [loadingTrending, setLoadingTrending] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState({ movies: [], tv: [] })
   const [searching, setSearching] = useState(false)
-  const [loadingTrending, setLoadingTrending] = useState(true)
 
   useEffect(() => {
     if (!hasApiKey()) {
@@ -53,21 +54,13 @@ export default function App() {
   }
 
   const handlePlayMovie = (item) => {
-    navigate(`/watch/movie/${item.id}`)
+    navigate(`/watch/movie/${item.id}`, { state: { returnTo: pathname } })
   }
 
   const handlePlayTv = (item, opts = {}) => {
     const s = opts.season ?? 1
     const e = opts.episode ?? 1
-    navigate(`/watch/tv/${item.id}?season=${s}&episode=${e}`)
-  }
-
-  const scrollToSection = (sectionId) => {
-    if (isBrowse) {
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    } else {
-      navigate('/', { state: { scrollTo: sectionId } })
-    }
+    navigate(`/watch/tv/${item.id}?season=${s}&episode=${e}`, { state: { returnTo: pathname } })
   }
 
   return (
@@ -78,16 +71,32 @@ export default function App() {
           <span className={styles.logoText}>KhattarHub</span>
         </button>
         <nav className={styles.nav}>
-          <button type="button" className={styles.navLink} onClick={() => navigate('/')}>
+          <button
+            type="button"
+            className={pathname === '/' ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
+            onClick={() => navigate('/')}
+          >
             Home
           </button>
-          <button type="button" className={styles.navLink} onClick={() => scrollToSection(SECTION_IDS.movies)}>
+          <button
+            type="button"
+            className={pathname === '/movies' ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
+            onClick={() => navigate('/movies')}
+          >
             Movies
           </button>
-          <button type="button" className={styles.navLink} onClick={() => scrollToSection(SECTION_IDS.series)}>
+          <button
+            type="button"
+            className={pathname === '/series' ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
+            onClick={() => navigate('/series')}
+          >
             Series
           </button>
-          <button type="button" className={styles.navLink} onClick={() => isBrowse ? scrollToSection(SECTION_IDS.liveTv) : navigate('/live')}>
+          <button
+            type="button"
+            className={pathname === '/live' ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
+            onClick={() => navigate('/live')}
+          >
             Live TV & Sports
           </button>
         </nav>
@@ -98,6 +107,8 @@ export default function App() {
           <Route path="/watch/:type/:id" element={<WatchScreen />} />
           <Route path="/live/watch" element={<LiveWatch />} />
           <Route path="/live" element={<LiveChannels />} />
+          <Route path="/movies" element={<MoviesScreen onPlayMovie={handlePlayMovie} />} />
+          <Route path="/series" element={<SeriesScreen onPlayTv={handlePlayTv} />} />
           <Route path="/" element={
             <HomePage
               trendingMovies={trendingMovies}

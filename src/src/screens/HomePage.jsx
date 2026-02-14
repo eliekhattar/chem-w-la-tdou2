@@ -1,19 +1,8 @@
-import { useEffect } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getTrendingMovies, getTrendingTv, searchMovies, searchTv, hasApiKey } from '../api/tmdb'
-import { LIVE_TV_CHANNELS } from '../api/daddylives'
+import { Link } from 'react-router-dom'
+import { searchMovies, searchTv, hasApiKey } from '../api/tmdb'
 import MediaCard from '../components/MediaCard'
 import SearchBar from '../components/SearchBar'
-import OpenByTmdbId from '../components/OpenByTmdbId'
 import styles from '../App.module.css'
-
-const SECTION_IDS = { movies: 'section-movies', series: 'section-series', liveTv: 'section-live-tv' }
-
-// Featured live channels for home showcase (popular IDs + fill to 12)
-const FEATURED_IDS = ['44', '45', '39', '51', '53', '345', '366', '52', '300', '370', '664', '425', '308']
-const featured = LIVE_TV_CHANNELS.filter((ch) => FEATURED_IDS.includes(ch.id))
-const fill = LIVE_TV_CHANNELS.filter((ch) => !FEATURED_IDS.includes(ch.id)).slice(0, 12 - featured.length)
-const HOME_LIVE_CHANNELS = [...featured, ...fill].slice(0, 12)
 
 export default function HomePage({
   trendingMovies,
@@ -26,22 +15,6 @@ export default function HomePage({
   handlePlayMovie,
   handlePlayTv,
 }) {
-  const location = useLocation()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    const scrollTo = location.state?.scrollTo
-    if (scrollTo && typeof document !== 'undefined') {
-      const el = document.getElementById(scrollTo)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-      navigate(location.pathname, { replace: true, state: {} })
-    }
-  }, [location.state?.scrollTo, location.pathname, navigate])
-
-  const watchLiveUrl = (id, source = 'tv') => `/live/watch?id=${encodeURIComponent(id)}&source=${source}`
-
   return (
     <>
       <div className={styles.heroBanner}>
@@ -98,7 +71,7 @@ export default function HomePage({
 
       {hasApiKey() && !searchQuery.trim() && (
         <>
-          <section id={SECTION_IDS.movies} className={styles.section}>
+          <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Trending Movies</h2>
             {loadingTrending ? (
               <div className={styles.loading}>Loading…</div>
@@ -111,7 +84,7 @@ export default function HomePage({
             )}
           </section>
 
-          <section id={SECTION_IDS.series} className={styles.section}>
+          <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Trending TV Series</h2>
             {loadingTrending ? (
               <div className={styles.loading}>Loading…</div>
@@ -124,22 +97,24 @@ export default function HomePage({
             )}
           </section>
 
-          <section id={SECTION_IDS.liveTv} className={styles.section}>
-            <div className={styles.sectionHeaderRow}>
-              <h2 className={styles.sectionTitle}>Live TV & Sports</h2>
-              <Link to="/live" className={styles.seeAllLink}>See all channels</Link>
-            </div>
-            <div className={styles.liveTvGrid}>
-              {HOME_LIVE_CHANNELS.map((ch) => (
-                <Link
-                  key={ch.id}
-                  to={watchLiveUrl(ch.id, ch.source)}
-                  className={styles.liveTvCard}
-                >
-                  <span className={styles.liveTvCardIcon}>📺</span>
-                  <span className={styles.liveTvCardName}>{ch.name}</span>
-                </Link>
-              ))}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Live TV & Sports</h2>
+            <div className={styles.liveOptionsGrid}>
+              <Link to="/live?provider=cdnlive" className={styles.liveOptionCard}>
+                <span className={styles.liveOptionIcon}>📺</span>
+                <span className={styles.liveOptionName}>Live TV</span>
+                <span className={styles.liveOptionDesc}>CDN Live / StreamSports99</span>
+              </Link>
+              <Link to="/live?provider=streamed" className={styles.liveOptionCard}>
+                <span className={styles.liveOptionIcon}>⚽</span>
+                <span className={styles.liveOptionName}>Live Sports</span>
+                <span className={styles.liveOptionDesc}>Streamed matches & events</span>
+              </Link>
+              <Link to="/live?provider=iptvorg" className={styles.liveOptionCard}>
+                <span className={styles.liveOptionIcon}>📡</span>
+                <span className={styles.liveOptionName}>IPTV Org</span>
+                <span className={styles.liveOptionDesc}>Thousands of channels worldwide</span>
+              </Link>
             </div>
           </section>
         </>
@@ -147,5 +122,3 @@ export default function HomePage({
     </>
   )
 }
-
-export { SECTION_IDS }

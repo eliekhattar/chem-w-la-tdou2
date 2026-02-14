@@ -1,8 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { LIVE_TV_CHANNELS, ADULT_CHANNELS, getChannelLetter } from '../api/daddylives'
 import { getMatches, getBadgeUrl, getProxyUrl } from '../api/streamed'
 import { getChannels, getSportsEvents, flattenEvents, buildPlayerUrl } from '../api/cdnlive'
+import { getStreamsWithChannelNames } from '../api/iptvorg'
 import styles from './LiveChannels.module.css'
 
 const LETTERS = ['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '#']
@@ -18,13 +19,14 @@ const STREAMED_MATCH_FILTERS = [
 export default function LiveChannels() {
   const [searchParams, setSearchParams] = useSearchParams()
   const providerParam = searchParams.get('provider')
-  const provider = providerParam === 'streamed' ? 'streamed' : providerParam === 'cdnlive' ? 'cdnlive' : 'daddylives'
+  const provider = providerParam === 'daddylives' ? 'daddylives' : providerParam === 'iptvorg' ? 'iptvorg' : providerParam === 'streamed' ? 'streamed' : 'cdnlive'
 
   const [searchQuery, setSearchQuery] = useState('')
   const [letterFilter, setLetterFilter] = useState('All')
   const [adultUnlocked, setAdultUnlocked] = useState(false)
   const hashTapCountRef = useRef(0)
   const lastHashTapTimeRef = useRef(0)
+  const [iptvSearch, setIptvSearch] = useState('')
 
   // Streamed state
   const [matchFilter, setMatchFilter] = useState('live')
@@ -38,6 +40,10 @@ export default function LiveChannels() {
   const [loadingCdnChannels, setLoadingCdnChannels] = useState(false)
   const [loadingCdnEvents, setLoadingCdnEvents] = useState(false)
 
+  // IPTV Org state
+  const [iptvStreams, setIptvStreams] = useState([])
+  const [loadingIptv, setLoadingIptv] = useState(false)
+
   useEffect(() => {
     if (provider !== 'streamed') return
     setLoadingMatches(true)
@@ -49,8 +55,7 @@ export default function LiveChannels() {
 
   const setProvider = (p) => {
     const next = new URLSearchParams(searchParams)
-    if (p === 'daddylives') next.delete('provider')
-    else next.set('provider', p)
+    next.set('provider', p)
     setSearchParams(next)
   }
 
@@ -74,7 +79,14 @@ export default function LiveChannels() {
       .finally(() => setLoadingCdnEvents(false))
   }, [provider, cdnLiveMode])
 
-  const watchUrl = (id, source = 'tv') => `/live/watch?id=${encodeURIComponent(id)}&source=${source}`
+  useEffect(() => {
+    if (provider !== 'iptvorg') return
+    setLoadingIptv(true)
+    getStreamsWithChannelNames()
+      .then(setIptvStreams)
+      .catch(() => setIptvStreams([]))
+      .finally(() => setLoadingIptv(false))
+  }, [provider])
 
   /** Build watch URL for a Streamed match (uses first source). */
   const streamedWatchUrl = (match) => {
@@ -110,6 +122,17 @@ export default function LiveChannels() {
     return `/live/watch?${params.toString()}`
   }
 
+  /** Build watch URL for IPTV Org stream. */
+  const iptvWatchUrl = (stream) => {
+    const params = new URLSearchParams()
+    params.set('provider', 'iptvorg')
+    params.set('url', stream.url)
+    params.set('title', stream.title || 'Stream')
+    return `/live/watch?${params.toString()}`
+  }
+
+  const watchUrl = (id, source = 'tv') => `/live/watch?id=${encodeURIComponent(id)}&source=${source}&provider=daddylives`
+
   const handleLetterClick = (letter) => {
     if (letter !== '#') {
       hashTapCountRef.current = 0
@@ -126,6 +149,20 @@ export default function LiveChannels() {
     }
     setLetterFilter('#')
   }
+
+  /** Daddylives: filter channels by search and letter */
+  const { filteredChannels, letterCounts } = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    const byLetter = {}
+    let list = LIVE_TV_CHANNELS
+    if (q) list = list.filter((ch) => ch.name.toLowerCase().includes(q))
+    if (letterFilter !== 'All') list = list.filter((ch) => getChannelLetter(ch) === letterFilter)
+    list.forEach((ch) => {
+      const letter = getChannelLetter(ch)
+      byLetter[letter] = (byLetter[letter] || 0) + 1
+    })
+    return { filteredChannels: list, letterCounts: byLetter }
+  }, [searchQuery, letterFilter])
 
   /** Streamed: group matches by category (sport), sorted by sport name */
   const matchesBySport = useMemo(() => {
@@ -151,25 +188,16 @@ export default function LiveChannels() {
     return sorted.map((sport) => ({ sport, list: bySport[sport] }))
   }, [cdnEvents])
 
-  const { filteredChannels, letterCounts } = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    const byLetter = {}
-    let list = LIVE_TV_CHANNELS
-
-    if (q) {
-      list = list.filter((ch) => ch.name.toLowerCase().includes(q))
-    }
-    if (letterFilter !== 'All') {
-      list = list.filter((ch) => getChannelLetter(ch) === letterFilter)
-    }
-
-    list.forEach((ch) => {
-      const letter = getChannelLetter(ch)
-      byLetter[letter] = (byLetter[letter] || 0) + 1
-    })
-
-    return { filteredChannels: list, letterCounts: byLetter }
-  }, [searchQuery, letterFilter])
+  /** IPTV Org: filter streams by search */
+  const filteredIptvStreams = useMemo(() => {
+    const q = iptvSearch.trim().toLowerCase()
+    if (!q) return iptvStreams.slice(0, 200)
+    return iptvStreams.filter(
+      (s) =>
+        (s.title && s.title.toLowerCase().includes(q)) ||
+        (s.channelName && s.channelName.toLowerCase().includes(q))
+    ).slice(0, 200)
+  }, [iptvStreams, iptvSearch])
 
   return (
     <section className={styles.section}>
@@ -183,24 +211,31 @@ export default function LiveChannels() {
       <div className={styles.providerTabs}>
         <button
           type="button"
-          className={provider === 'daddylives' ? styles.providerTabActive : styles.providerTab}
-          onClick={() => setProvider('daddylives')}
+          className={provider === 'cdnlive' ? styles.providerTabActive : styles.providerTab}
+          onClick={() => setProvider('cdnlive')}
         >
-          📺 Live TV (Daddylives)
+          📺 Live TV
         </button>
         <button
           type="button"
           className={provider === 'streamed' ? styles.providerTabActive : styles.providerTab}
           onClick={() => setProvider('streamed')}
         >
-          ⚽ Sports (Streamed)
+          ⚽ Live Sports
         </button>
         <button
           type="button"
-          className={provider === 'cdnlive' ? styles.providerTabActive : styles.providerTab}
-          onClick={() => setProvider('cdnlive')}
+          className={provider === 'iptvorg' ? styles.providerTabActive : styles.providerTab}
+          onClick={() => setProvider('iptvorg')}
         >
-          📡 CDN Live / StreamSports99
+          📡 IPTV Org
+        </button>
+        <button
+          type="button"
+          className={provider === 'daddylives' ? styles.providerTabActive : styles.providerTab}
+          onClick={() => setProvider('daddylives')}
+        >
+          📺 Daddylives
         </button>
       </div>
 
@@ -375,107 +410,104 @@ export default function LiveChannels() {
             </div>
           )}
         </>
+      ) : provider === 'iptvorg' ? (
+        <>
+          <p className={styles.resultCount}>
+            {loadingIptv ? 'Loading…' : `${iptvStreams.length} streams (from IPTV-Org API)`}
+          </p>
+          <div className={styles.toolbar}>
+            <input
+              type="search"
+              value={iptvSearch}
+              onChange={(e) => setIptvSearch(e.target.value)}
+              placeholder="Search by channel or title…"
+              className={styles.searchInput}
+              aria-label="Search streams"
+            />
+          </div>
+          {loadingIptv ? (
+            <p className={styles.empty}>Loading streams…</p>
+          ) : filteredIptvStreams.length === 0 ? (
+            <p className={styles.empty}>
+              {iptvSearch.trim() ? 'No streams match your search.' : 'No streams loaded.'}
+            </p>
+          ) : (
+            <div className={styles.channelList}>
+              <ul className={styles.cardGrid}>
+                {filteredIptvStreams.map((stream) => (
+                  <li key={stream.id}>
+                    <Link to={iptvWatchUrl(stream)} className={styles.channelCard}>
+                      <span className={styles.channelIcon}>📺</span>
+                      <span className={styles.channelName}>{stream.title}</span>
+                      {stream.quality && (
+                        <span className={styles.matchCardMeta}>{stream.quality}</span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       ) : (
         <>
-      {/* Daddylives */}
-      {/* <p className={styles.intro}>
-        {LIVE_TV_CHANNELS.length} live channels via{' '}
-        <a href="https://daddylives.nl/api" target="_blank" rel="noopener noreferrer">Daddylives</a>.
-        For PPV/sports events use “Open by ID” below.
-      </p> */}
-
-      {/* <div className={styles.openById}> */}
-        {/* <h2 className={styles.subtitle}>Open by Channel or Event ID</h2> */}
-        {/* <p className={styles.hint}>
-          Paste any channel ID or a PPV path (e.g. <code>admin/ppv-event/1</code>) and choose source.
-        </p>
-        <div className={styles.idRow}>
-          <input
-            type="text"
-            value={customId}
-            onChange={(e) => setCustomId(e.target.value)}
-            placeholder="Channel or event ID"
-            className={styles.idInput}
-          />
-          <select
-            value={customSource}
-            onChange={(e) => setCustomSource(e.target.value)}
-            className={styles.sourceSelect}
-            aria-label="Source type"
-          >
-            <option value="tv">TV</option>
-            <option value="tv2">Sports / PPV</option>
-          </select>
-          {customId.trim() ? (
-            <Link to={watchUrl(customId.trim(), customSource)} className={styles.watchBtn}>
-              Watch
-            </Link>
-          ) : (
-            <span className={styles.watchBtnDisabled}>Watch</span>
+          <div className={styles.toolbar}>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search channels…"
+              className={styles.searchInput}
+              aria-label="Search channels"
+            />
+            <div className={styles.letterBar}>
+              {LETTERS.map((letter) => (
+                <button
+                  key={letter}
+                  type="button"
+                  className={letterFilter === letter ? styles.letterActive : styles.letterBtn}
+                  onClick={() => handleLetterClick(letter)}
+                  title={letter === 'All' ? 'Show all' : `${letter} (${letterCounts[letter] ?? 0})`}
+                >
+                  {letter}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className={styles.resultCount}>
+            {filteredChannels.length} channel{filteredChannels.length !== 1 ? 's' : ''}
+          </p>
+          <div className={styles.channelList}>
+            {filteredChannels.length === 0 ? (
+              <p className={styles.empty}>No channels match. Try another search or letter.</p>
+            ) : (
+              <ul className={styles.cardGrid}>
+                {filteredChannels.map((ch) => (
+                  <li key={ch.id}>
+                    <Link to={watchUrl(ch.id, ch.source)} className={styles.channelCard}>
+                      <span className={styles.channelIcon}>📺</span>
+                      <span className={styles.channelName}>{ch.name}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {adultUnlocked && (
+            <div className={styles.adultSection}>
+              <h2 className={styles.adultSectionTitle}>Adult</h2>
+              <ul className={styles.cardGrid}>
+                {ADULT_CHANNELS.map((ch) => (
+                  <li key={ch.id}>
+                    <Link to={watchUrl(ch.id, ch.source)} className={styles.channelCard}>
+                      <span className={styles.channelIcon}>📺</span>
+                      <span className={styles.channelName}>{ch.name}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
-        </div> */}
-      {/* </div> */}
-
-      <div className={styles.toolbar}>
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search channels…"
-          className={styles.searchInput}
-          aria-label="Search channels"
-        />
-        <div className={styles.letterBar}>
-          {LETTERS.map((letter) => (
-            <button
-              key={letter}
-              type="button"
-              className={letterFilter === letter ? styles.letterActive : styles.letterBtn}
-              onClick={() => handleLetterClick(letter)}
-              title={letter === 'All' ? 'Show all' : `${letter} (${letterCounts[letter] ?? 0})`}
-            >
-              {letter}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <p className={styles.resultCount}>
-        {filteredChannels.length} channel{filteredChannels.length !== 1 ? 's' : ''}
-      </p>
-
-      <div className={styles.channelList}>
-        {filteredChannels.length === 0 ? (
-          <p className={styles.empty}>No channels match. Try another search or letter.</p>
-        ) : (
-          <ul className={styles.cardGrid}>
-            {filteredChannels.map((ch) => (
-              <li key={ch.id}>
-                <Link to={watchUrl(ch.id, ch.source)} className={styles.channelCard}>
-                  <span className={styles.channelIcon}>📺</span>
-                  <span className={styles.channelName}>{ch.name}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {adultUnlocked && (
-        <div className={styles.adultSection}>
-          <h2 className={styles.adultSectionTitle}>Adult</h2>
-          <ul className={styles.cardGrid}>
-            {ADULT_CHANNELS.map((ch) => (
-              <li key={ch.id}>
-                <Link to={watchUrl(ch.id, ch.source)} className={styles.channelCard}>
-                  <span className={styles.channelIcon}>📺</span>
-                  <span className={styles.channelName}>{ch.name}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
         </>
       )}
     </section>

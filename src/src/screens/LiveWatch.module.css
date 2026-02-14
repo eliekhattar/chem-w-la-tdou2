@@ -4,6 +4,17 @@
   gap: 1rem;
 }
 
+.adNotice {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-muted, #aaa);
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px solid rgba(255, 193, 7, 0.25);
+  border-radius: var(--radius-sm, 6px);
+}
+
 .headerRow {
   display: flex;
   flex-wrap: wrap;
@@ -131,6 +142,16 @@
   width: 100%;
   height: 100%;
   border: none;
+}
+
+.videoNative {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
 }
 
 .empty {

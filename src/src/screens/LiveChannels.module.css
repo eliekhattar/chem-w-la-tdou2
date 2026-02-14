@@ -268,6 +268,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
+  min-height: 72px;
   background: var(--surface, #1a1a1a);
   border: 1px solid var(--border, #333);
   border-radius: var(--radius-md, 8px);
@@ -283,11 +284,19 @@
 
 .channelIcon {
   font-size: 1.5rem;
+  flex-shrink: 0;
 }
 
 .channelName {
   font-weight: 600;
   font-size: 0.95rem;
+  line-height: 1.3;
+  min-height: 2.6em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 /* Provider tabs (Daddylives / Streamed) */
@@ -492,6 +501,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 1rem;
+  min-height: 120px;
   background: var(--surface, #1a1a1a);
   border: 1px solid var(--border, #333);
   border-radius: var(--radius-md, 8px);
@@ -505,10 +515,16 @@
   border-color: var(--accent, #05c653);
 }
 
+.cdnChannelCard .channelName {
+  text-align: center;
+  min-height: 2.6em;
+}
+
 .cdnChannelImg {
   width: 48px;
   height: 48px;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .statusOffline {
