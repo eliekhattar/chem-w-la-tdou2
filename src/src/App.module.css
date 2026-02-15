@@ -166,8 +166,8 @@
 
 .heroTagline {
   font-family: var(--font-title);
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 400;
   color: var(--accent, #05c653);
   letter-spacing: 0.02em;
   margin: 0 0 1.25rem;
@@ -175,7 +175,7 @@
 
 @media (min-width: 600px) {
   .heroTagline {
-    font-size: 2rem;
+    font-size: 1.2rem;
     margin-bottom: 1.5rem;
   }
 }

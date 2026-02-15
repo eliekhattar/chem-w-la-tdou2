@@ -19,7 +19,9 @@ export default function HomePage({
     <>
       <div className={styles.heroBanner}>
         <h1 className={styles.heroTitle}>Welcome to KhattarHub</h1>
-        {/* <p className={styles.heroTagline}>Ensa akbar Netflix</p> */}
+        <p className={styles.heroTagline}>
+          For the best experience and to avoid unwanted ads, we recommend using <strong style={{ color: 'red' }}>Brave Browser</strong> when visiting KhattarHub.
+        </p>
         {hasApiKey() && (
           <div className={styles.heroSearchWrap}>
             <SearchBar onSearch={handleSearch} isLoading={searching} />
@@ -103,7 +105,7 @@ export default function HomePage({
               <Link to="/live?provider=cdnlive" className={styles.liveOptionCard}>
                 <span className={styles.liveOptionIcon}>📺</span>
                 <span className={styles.liveOptionName}>Live TV</span>
-                <span className={styles.liveOptionDesc}>CDN Live / StreamSports99</span>
+                <span className={styles.liveOptionDesc}>Premium Channels </span>
               </Link>
               <Link to="/live?provider=streamed" className={styles.liveOptionCard}>
                 <span className={styles.liveOptionIcon}>⚽</span>

@@ -19,11 +19,13 @@ export function buildDaddylivesEmbedUrl({ id, player = 1, source = 'tv' }) {
   return `${DADDYLIVES_EMBED_BASE}?${params.toString()}`
 }
 
-/** All live TV channels: { id, name } — use source 'tv' for embed. */
-export const LIVE_TV_CHANNELS = channelsData.channels.map((ch) => ({
-  ...ch,
-  source: 'tv',
-}))
+/** Adult channel ids (501–520); excluded from main list, only shown in unlocked Adult section. */
+const ADULT_IDS = new Set(Array.from({ length: 20 }, (_, i) => String(501 + i)))
+
+/** Live TV channels (adult ids excluded; adult channels only appear in the #-unlocked Adult section). */
+export const LIVE_TV_CHANNELS = channelsData.channels
+  .filter((ch) => !ADULT_IDS.has(ch.id))
+  .map((ch) => ({ ...ch, source: 'tv' }))
 
 /** First letter for grouping (A–Z or # for digits/other). */
 export function getChannelLetter(channel) {
@@ -32,8 +34,7 @@ export function getChannelLetter(channel) {
   return /[A-Z]/.test(first) ? first : '#'
 }
 
-/** Adult channels (unlocked via 7-tap on # on Live TV screen; not persisted). Source: adult.html */
-export const ADULT_CHANNELS = Array.from({ length: 20 }, (_, i) => {
-  const n = i + 1
-  return { id: String(500 + n), name: `18+ (Player-${String(n).padStart(2, '0')})`, source: 'tv' }
-})
+/** Adult channels (unlocked via 7-tap on # on Live TV screen; not persisted). Same ids/names as in channels data so list and player show the same name. */
+export const ADULT_CHANNELS = channelsData.channels
+  .filter((ch) => ADULT_IDS.has(ch.id))
+  .map((ch) => ({ ...ch, source: 'tv' }))

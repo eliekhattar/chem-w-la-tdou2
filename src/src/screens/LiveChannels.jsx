@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { LIVE_TV_CHANNELS, ADULT_CHANNELS, getChannelLetter } from '../api/daddylives'
 import { getMatches, getBadgeUrl, getProxyUrl } from '../api/streamed'
@@ -7,8 +7,6 @@ import { getStreamsWithChannelNames } from '../api/iptvorg'
 import styles from './LiveChannels.module.css'
 
 const LETTERS = ['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '#']
-const TAP_WINDOW_MS = 1500
-const TAPS_REQUIRED = 7
 
 const STREAMED_MATCH_FILTERS = [
   { value: 'live', label: 'Live' },
@@ -23,9 +21,6 @@ export default function LiveChannels() {
 
   const [searchQuery, setSearchQuery] = useState('')
   const [letterFilter, setLetterFilter] = useState('All')
-  const [adultUnlocked, setAdultUnlocked] = useState(false)
-  const hashTapCountRef = useRef(0)
-  const lastHashTapTimeRef = useRef(0)
   const [iptvSearch, setIptvSearch] = useState('')
 
   // Streamed state
@@ -39,6 +34,7 @@ export default function LiveChannels() {
   const [cdnEvents, setCdnEvents] = useState([])
   const [loadingCdnChannels, setLoadingCdnChannels] = useState(false)
   const [loadingCdnEvents, setLoadingCdnEvents] = useState(false)
+  const [cdnLiveChannelSearch, setCdnLiveChannelSearch] = useState('')
 
   // IPTV Org state
   const [iptvStreams, setIptvStreams] = useState([])
@@ -133,36 +129,24 @@ export default function LiveChannels() {
 
   const watchUrl = (id, source = 'tv') => `/live/watch?id=${encodeURIComponent(id)}&source=${source}&provider=daddylives`
 
-  const handleLetterClick = (letter) => {
-    if (letter !== '#') {
-      hashTapCountRef.current = 0
-      setLetterFilter(letter)
-      return
-    }
-    const now = Date.now()
-    if (now - lastHashTapTimeRef.current > TAP_WINDOW_MS) hashTapCountRef.current = 0
-    lastHashTapTimeRef.current = now
-    hashTapCountRef.current += 1
-    if (hashTapCountRef.current >= TAPS_REQUIRED) {
-      setAdultUnlocked(true)
-      hashTapCountRef.current = 0
-    }
-    setLetterFilter('#')
-  }
+  const adultUnlockCode = (import.meta.env.VITE_ADULT_UNLOCK_CODE || '').trim()
+  /** Daddylives: show Adult section only when search bar matches the env code (case-insensitive). */
+  const showAdultSection = provider === 'daddylives' && adultUnlockCode !== '' && searchQuery.trim().toLowerCase() === adultUnlockCode.toLowerCase()
 
   /** Daddylives: filter channels by search and letter */
   const { filteredChannels, letterCounts } = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     const byLetter = {}
     let list = LIVE_TV_CHANNELS
-    if (q) list = list.filter((ch) => ch.name.toLowerCase().includes(q))
+    const unlockCodeLower = adultUnlockCode.toLowerCase()
+    if (q && (unlockCodeLower === '' || q !== unlockCodeLower)) list = list.filter((ch) => ch.name.toLowerCase().includes(q))
     if (letterFilter !== 'All') list = list.filter((ch) => getChannelLetter(ch) === letterFilter)
     list.forEach((ch) => {
       const letter = getChannelLetter(ch)
       byLetter[letter] = (byLetter[letter] || 0) + 1
     })
     return { filteredChannels: list, letterCounts: byLetter }
-  }, [searchQuery, letterFilter])
+  }, [searchQuery, letterFilter, adultUnlockCode])
 
   /** Streamed: group matches by category (sport), sorted by sport name */
   const matchesBySport = useMemo(() => {
@@ -175,6 +159,17 @@ export default function LiveChannels() {
     const sorted = Object.keys(bySport).sort((a, b) => a.localeCompare(b))
     return sorted.map((sport) => ({ sport, list: bySport[sport] }))
   }, [matches])
+
+  /** CDN Live: filter channels by search (name + country code) */
+  const filteredCdnChannels = useMemo(() => {
+    const q = cdnLiveChannelSearch.trim().toLowerCase()
+    if (!q) return cdnChannels
+    return cdnChannels.filter(
+      (ch) =>
+        (ch.name && ch.name.toLowerCase().includes(q)) ||
+        (ch.code && ch.code.toLowerCase().includes(q))
+    )
+  }, [cdnChannels, cdnLiveChannelSearch])
 
   /** CDN Live: group events by sport, sorted by sport name */
   const cdnEventsBySport = useMemo(() => {
@@ -235,7 +230,7 @@ export default function LiveChannels() {
           className={provider === 'daddylives' ? styles.providerTabActive : styles.providerTab}
           onClick={() => setProvider('daddylives')}
         >
-          📺 Daddylives
+          📺 Live TV (Alternate)
         </button>
       </div>
 
@@ -259,33 +254,55 @@ export default function LiveChannels() {
           </div>
           {cdnLiveMode === 'channels' && (
             <>
+              <div className={styles.toolbar}>
+                <input
+                  type="search"
+                  value={cdnLiveChannelSearch}
+                  onChange={(e) => setCdnLiveChannelSearch(e.target.value)}
+                  placeholder="Search by channel name or country code (e.g. bein, us, gb)…"
+                  className={styles.searchInput}
+                  aria-label="Search TV channels"
+                />
+              </div>
               {loadingCdnChannels ? (
                 <p className={styles.empty}>Loading channels…</p>
               ) : (
                 <>
                   <p className={styles.resultCount}>
-                    {cdnChannels.length} channel{cdnChannels.length !== 1 ? 's' : ''}
+                    {filteredCdnChannels.length} channel{filteredCdnChannels.length !== 1 ? 's' : ''}
+                    {cdnLiveChannelSearch.trim() && ` (of ${cdnChannels.length})`}
                   </p>
                   <div className={styles.channelList}>
-                    <ul className={styles.cardGrid}>
-                      {cdnChannels.map((ch) => (
-                        <li key={`${ch.code}-${ch.name}`}>
-                          <Link to={cdnLiveChannelWatchUrl(ch)} className={styles.cdnChannelCard}>
-                            {ch.image ? (
-                              <img src={ch.image} alt="" className={styles.cdnChannelImg} />
-                            ) : (
-                              <span className={styles.matchCardIcon}>📺</span>
-                            )}
-                            <span className={styles.channelName}>{ch.name}</span>
-                            {ch.status && (
-                              <span className={ch.status === 'offline' ? styles.statusOffline : ch.status === 'online' ? styles.statusOnline : styles.matchCardMeta}>
-                                {ch.status}
-                              </span>
-                            )}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
+                    {filteredCdnChannels.length === 0 ? (
+                      <p className={styles.empty}>
+                        {cdnLiveChannelSearch.trim() ? 'No channels match your search.' : 'No channels loaded.'}
+                      </p>
+                    ) : (
+                      <ul className={styles.cardGrid}>
+                        {filteredCdnChannels.map((ch) => (
+                          <li key={`${ch.code}-${ch.name}`}>
+                            <Link to={cdnLiveChannelWatchUrl(ch)} className={styles.cdnChannelCard}>
+                              {ch.image ? (
+                                <img src={ch.image} alt="" className={styles.cdnChannelImg} />
+                              ) : (
+                                <span className={styles.cdnChannelIcon}>📺</span>
+                              )}
+                              <span className={styles.channelName}>{ch.name}</span>
+                              {ch.code && (
+                                <span className={styles.cdnChannelCode} title="Country code">
+                                  {ch.code.toUpperCase()}
+                                </span>
+                              )}
+                              {ch.status && (
+                                <span className={ch.status === 'offline' ? styles.statusOffline : ch.status === 'online' ? styles.statusOnline : styles.matchCardMeta}>
+                                  {ch.status}
+                                </span>
+                              )}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </>
               )}
@@ -412,9 +429,9 @@ export default function LiveChannels() {
         </>
       ) : provider === 'iptvorg' ? (
         <>
-          <p className={styles.resultCount}>
+          {/* <p className={styles.resultCount}>
             {loadingIptv ? 'Loading…' : `${iptvStreams.length} streams (from IPTV-Org API)`}
-          </p>
+          </p> */}
           <div className={styles.toolbar}>
             <input
               type="search"
@@ -466,7 +483,7 @@ export default function LiveChannels() {
                   key={letter}
                   type="button"
                   className={letterFilter === letter ? styles.letterActive : styles.letterBtn}
-                  onClick={() => handleLetterClick(letter)}
+                  onClick={() => setLetterFilter(letter)}
                   title={letter === 'All' ? 'Show all' : `${letter} (${letterCounts[letter] ?? 0})`}
                 >
                   {letter}
@@ -493,7 +510,7 @@ export default function LiveChannels() {
               </ul>
             )}
           </div>
-          {adultUnlocked && (
+          {showAdultSection && (
             <div className={styles.adultSection}>
               <h2 className={styles.adultSectionTitle}>Adult</h2>
               <ul className={styles.cardGrid}>
